@@ -1,11 +1,43 @@
 [package]
 name = "egelm"
-version = "0.1.0"
-edition = "2024"
+version.workspace = true
+edition.workspace = true
+description.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[package.metadata.release]
+allow-branch = ["master"]
+pre-release-hook = [
+	"git",
+	"cliff",
+	"-o",
+	"CHANGELOG.md",
+	"--tag",
+	"{{version}}",
+]
+sign-commit = true
+sign-tag = true
+consolidate-commits = true
+pre-release-commit-message = "release: {{version}}"
+tag-name = "v{{version}}"
+tag-message = "{{version}}"
+push = true
+publish = true
+tag = true
+enable-all-features = true
+shared-version = true
 
 [workspace]
 resolver = "3"
 members = ["egelm-macros"]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+description = "A simple Elm-like framework for building GUI applications in Rust using egui."
+license = "MIT"
+repository = "https://codeberg.org/Land/egelm"
 
 [lints.rust]
 missing_docs = "warn"
@@ -20,7 +52,7 @@ tracing = ["dep:tracing"]
 emojis = ["dep:emojis"]
 
 [dependencies]
-egelm-macros = { path = "./egelm-macros" }
+egelm-macros = { version = "=0.0.0", path = "./egelm-macros" }
 
 ctrlc = { version = "3.5.2", optional = true }
 tracing = { version = "0.1.44", optional = true }
