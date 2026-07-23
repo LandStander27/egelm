@@ -5,6 +5,15 @@ in Rust with [`egui`](https://github.com/emilk/egui). It adds a typed,
 message-driven widget lifecycle, child-widget management, asynchronous tasks,
 error routing, and reusable dialogs on top of `egui`.
 
+## Table of contents
+
+- [Features](#features)
+- [Installation](#installation)
+- [Quick start](#quick-start)
+- [How it works](#how-it-works)
+- [AI usage](#ai-usage)
+- [License](#license)
+
 ## Features
 
 - Typed messages, outputs, and errors for each widget
@@ -25,8 +34,14 @@ egelm = "0.2.1"
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 ```
 
-The default `egelm` features enable Ctrl-C handling, tracing, and emoji
-support.
+Or via `cargo add`:
+
+```sh
+cargo add egelm tokio --features 'tokio/rt-multi-thread tokio/macros'
+```
+
+The default `egelm` features enable Ctrl-C handling, tracing, a quick
+emoji lookup, and `wgpu` rendering.
 
 ## Quick start
 
