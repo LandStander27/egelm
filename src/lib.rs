@@ -1,7 +1,8 @@
 //! Build event-driven desktop interfaces with [`egui`].
 //!
 //! `egelm` supplies a small widget lifecycle, typed message routing, window
-//! management, and reusable dialogs on top of `egui`, `winit`, and OpenGL.
+//! management, and reusable dialogs on top of `egui` and `winit`. OpenGL is
+//! used by default; the optional `wgpu` feature selects the `wgpu` renderer.
 //!
 //! # Examples
 //!
@@ -18,7 +19,11 @@
 //! }
 //! ```
 
+#[cfg(not(any(feature = "glow", feature = "wgpu")))]
+compile_error!("enable either the `glow` or `wgpu` renderer feature");
+
 /// Emoji lookup and display types.
+#[cfg(feature = "emoji")]
 pub mod emoji;
 /// Errors produced by application and event-loop operations.
 pub mod error;

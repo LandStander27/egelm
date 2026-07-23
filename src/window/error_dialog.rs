@@ -36,9 +36,14 @@ impl LeafWidget for ErrorDialog {
 				ui.add_space(12.0);
 				ui.add(
 					Label::new(
-						RichText::new(emoji("warning"))
-							.size(40.0)
-							.color(Color32::from_rgb(0xe0, 0x1b, 0x24)),
+						RichText::new(
+							#[cfg(feature = "emoji")]
+							emoji("warning"),
+							#[cfg(not(feature = "emoji"))]
+							"⚠",
+						)
+						.size(40.0)
+						.color(Color32::from_rgb(0xe0, 0x1b, 0x24)),
 					)
 					.selectable(false),
 				);

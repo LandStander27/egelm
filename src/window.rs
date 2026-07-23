@@ -234,12 +234,12 @@ pub trait Widget: TickChildren + std::fmt::Debug + Sized {
 		Ok(())
 	}
 
-	/// Provides an optional widget-initialization hook.
-	///
-	/// The default implementation does nothing. Callers that manage a widget's
-	/// lifecycle may invoke this hook with its communication context.
-	#[expect(unused_variables)]
-	fn init(&mut self, ctx: &Context<Self>) {}
+	// /// Provides an optional widget-initialization hook.
+	// ///
+	// /// The default implementation does nothing. Callers that manage a widget's
+	// /// lifecycle may invoke this hook with its communication context.
+	// #[expect(unused_variables)]
+	// fn init(&mut self, ctx: &Context<Self>) {}
 }
 
 /// A rendering-only widget with no messages, output, or errors.
@@ -571,7 +571,13 @@ impl<T: RootWidget> App<T> {
 		self
 	}
 
-	/// Runs the native application event loop until exit is requested.
+	/// Runs the native application event loop with the default rendering backend
+	/// until exit is requested.
+	///
+	/// The `glow` backend is preferred when its crate feature is enabled.
+	/// Otherwise, this uses `wgpu` when the `wgpu` feature is enabled. Use
+	/// [`run_with_backend`](Self::run_with_backend) to select a backend at
+	/// runtime when both features are enabled.
 	///
 	/// # Errors
 	///
@@ -581,9 +587,9 @@ impl<T: RootWidget> App<T> {
 	///
 	/// # Panics
 	///
-	/// Platform window or OpenGL initialization failures currently panic. This
-	/// method may also panic when called from a thread on which `winit` does not
-	/// permit event-loop creation.
+	/// Platform-window or rendering-backend initialization failures currently
+	/// panic. This method may also panic when called from a thread on which
+	/// `winit` does not permit event-loop creation.
 	///
 	/// # Examples
 	///
@@ -604,19 +610,44 @@ impl<T: RootWidget> App<T> {
 	/// ```
 	#[tracing::instrument(skip(self, options))]
 	pub fn run(self, options: ViewportBuilder) -> Result<(), Error> {
-		let event_loop = EventLoop::<crate::native::glow::UserEvent>::with_user_event()
+		#[cfg(feature = "glow")]
+		return self.run_with_backend(crate::native::Renderer::Glow, options);
+		#[cfg(all(not(feature = "glow"), feature = "wgpu"))]
+		return self.run_with_backend(crate::native::Renderer::Wgpu, options);
+	}
+
+	/// Exactly the same as [`App::run`](Self::run) but allows the caller to select a specific rendering backend.
+	#[tracing::instrument(skip(self, options))]
+	pub fn run_with_backend(self, renderer: crate::native::Renderer, options: ViewportBuilder) -> Result<(), Error> {
+		let event_loop = EventLoop::<crate::native::UserEvent>::with_user_event()
 			.build()
 			.map_err(Error::EventLoopBuildFail)?;
 		let proxy = event_loop.create_proxy();
 		self.root.handle.init(proxy.clone());
-		let mut runner = crate::native::glow::Runner::new(self.root, options, proxy.clone());
+
+		let mut runner: Box<dyn crate::native::Runner> = match renderer {
+			#[cfg(feature = "glow")]
+			crate::native::Renderer::Glow => {
+				tracing::info!("using glow renderer");
+				Box::new(crate::native::_glow::GlowRunner::new(self.root, options, proxy.clone()))
+			}
+			#[cfg(feature = "wgpu")]
+			crate::native::Renderer::Wgpu => {
+				tracing::info!("using wgpu renderer");
+				Box::new(crate::native::_wgpu::WgpuRunner::new(self.root, options, proxy.clone()))
+			}
+			#[cfg(not(feature = "glow"))]
+			crate::native::Renderer::Glow => return Err(Error::RendererUnavailable("glow")),
+			#[cfg(not(feature = "wgpu"))]
+			crate::native::Renderer::Wgpu => return Err(Error::RendererUnavailable("wgpu")),
+		};
 
 		#[cfg(feature = "ctrlc")]
 		if self.ctrlc_handler {
 			ctrlc::set_handler(move || {
 				println!();
 				if let Err(e) = proxy
-					.send_event(crate::native::glow::UserEvent::Exit)
+					.send_event(crate::native::UserEvent::Exit)
 					.map_err(|_| Error::SendingOverChannel)
 				{
 					tracing::error!("{e}");

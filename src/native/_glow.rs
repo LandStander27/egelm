@@ -1,147 +1,20 @@
 //! OpenGL rendering resources and native window controls.
 
+use super::{Runner, UserEvent};
 use crate::prelude::*;
 use crate::widgets::prelude::*;
 
 use std::ffi::CString;
 use std::num::NonZeroU32;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::Ordering;
 use std::time::Duration;
 
 use egui_glow::glow;
 use egui_winit::winit;
-use winit::application::ApplicationHandler;
-use winit::event::{StartCause, WindowEvent};
+use winit::event::WindowEvent;
 use winit::event_loop::{ActiveEventLoop, EventLoopProxy};
 use winit::raw_window_handle::HasWindowHandle as _;
-
-/// Rendering resources and window controls for the current frame.
-///
-/// A mutable `Frame` is passed to widget rendering methods. It dereferences to
-/// [`Handle`], allowing window-control methods such as [`Handle::exit`] to be
-/// called directly on it.
-pub struct Frame {
-	handle: Handle,
-	gl: Arc<glow::Context>,
-	window: Arc<winit::window::Window>,
-}
-
-impl Frame {
-	/// Returns the OpenGL context used to paint the frame.
-	pub fn gl(&self) -> &Arc<glow::Context> {
-		&self.gl
-	}
-
-	/// Returns the native `winit` window associated with the frame.
-	pub fn winit_window(&self) -> &Arc<winit::window::Window> {
-		&self.window
-	}
-
-	/// Returns an owned handle for controlling the application window.
-	pub fn handle(&self) -> Handle {
-		self.handle.clone()
-	}
-}
-
-impl std::ops::Deref for Frame {
-	type Target = Handle;
-
-	fn deref(&self) -> &Self::Target {
-		&self.handle
-	}
-}
-
-impl std::ops::DerefMut for Frame {
-	fn deref_mut(&mut self) -> &mut Self::Target {
-		&mut self.handle
-	}
-}
-
-/// A cloneable, thread-safe handle to the application window.
-///
-/// Before an application starts, a default handle records visibility changes
-/// but has no event loop to notify. Once initialized by [`crate::window::App`],
-/// its methods may be called from worker tasks to wake, show, hide, or close
-/// the window.
-///
-/// # Examples
-///
-/// ```
-/// use egelm::prelude::Handle;
-///
-/// let handle = Handle::default();
-/// assert!(!handle.is_visible());
-/// ```
-#[derive(Debug, Clone, Default)]
-pub struct Handle {
-	proxy: Arc<std::sync::OnceLock<EventLoopProxy<UserEvent>>>,
-	visible: Arc<AtomicBool>,
-}
-
-impl Handle {
-	pub(crate) fn new() -> Self {
-		Self::default()
-	}
-
-	pub(crate) fn init(&self, proxy: EventLoopProxy<UserEvent>) {
-		self.proxy.set(proxy).unwrap();
-	}
-
-	/// Requests that the application process pending messages and repaint.
-	///
-	/// This is a no-op until the application event loop has been initialized.
-	pub fn request_repaint(&self) {
-		if let Some(proxy) = self.proxy.get() {
-			_ = proxy.send_event(UserEvent::MessageReady);
-		}
-	}
-
-	/// Hides and destroys the native window while keeping the event loop alive.
-	///
-	/// Calling [`show`](Self::show) later creates a new native window. Before
-	/// event-loop initialization, this only records the handle as hidden.
-	pub fn hide(&self) {
-		if let Some(proxy) = self.proxy.get() {
-			_ = proxy.send_event(UserEvent::Hide);
-		}
-		// self.visible.store(false, Ordering::Relaxed);
-	}
-
-	/// Shows the application window.
-	///
-	/// If the window was destroyed by [`hide`](Self::hide), it is recreated.
-	/// Before event-loop initialization, this only records the handle as visible.
-	pub fn show(&self) {
-		if let Some(proxy) = self.proxy.get() {
-			_ = proxy.send_event(UserEvent::Show);
-		}
-		// self.visible.store(true, Ordering::Relaxed);
-	}
-
-	/// Returns whether this handle currently considers the window visible.
-	pub fn is_visible(&self) -> bool {
-		self.visible.load(Ordering::Relaxed)
-	}
-
-	/// Requests termination of the application event loop.
-	///
-	/// This is a no-op until the application event loop has been initialized.
-	pub fn exit(&self) {
-		if let Some(proxy) = self.proxy.get() {
-			_ = proxy.send_event(UserEvent::Exit);
-		}
-	}
-}
-
-#[derive(Debug, Clone, Copy)]
-pub(crate) enum UserEvent {
-	Show,
-	Hide,
-	Exit,
-	RequestRepaint(Duration),
-	MessageReady,
-}
 
 struct GlutinWindowContext {
 	window: Arc<winit::window::Window>,
@@ -265,7 +138,7 @@ struct Surfaced {
 	frame: Frame,
 }
 
-pub(crate) struct Runner<T: RootWidget> {
+pub(crate) struct GlowRunner<T: RootWidget> {
 	root: Managed<T>,
 	viewport_builder: egui::ViewportBuilder,
 	egui_ctx: egui::Context,
@@ -275,7 +148,7 @@ pub(crate) struct Runner<T: RootWidget> {
 	handle: Handle,
 }
 
-impl<T: RootWidget> Runner<T> {
+impl<T: RootWidget> GlowRunner<T> {
 	pub(crate) fn new(root: Managed<T>, options: ViewportBuilder, proxy: EventLoopProxy<UserEvent>) -> Self {
 		Self {
 			handle: root.handle.clone(),
@@ -286,64 +159,6 @@ impl<T: RootWidget> Runner<T> {
 			egui_ctx: egui::Context::default(),
 			error_dialog: crate::window::error_dialog::ErrorDialog::default(),
 		}
-	}
-
-	fn update(&mut self) {
-		let span = tracing::span!(tracing::Level::INFO, "app_tick");
-		let _enter = span.enter();
-		if let Err(e) = self.root.update() {
-			let (summary, details) = self.root.error(&e);
-			self.error_dialog.emit(summary, details);
-		}
-		if let Some(surfaced) = self.surfaced.as_mut() {
-			surfaced.gl_window.window().request_redraw();
-		}
-	}
-
-	fn ensure_window(&mut self, event_loop: &ActiveEventLoop) {
-		if self.surfaced.is_some() {
-			return;
-		}
-
-		let gl_window = unsafe { GlutinWindowContext::new(&self.egui_ctx, event_loop, &self.viewport_builder) };
-
-		let gl = Arc::new(unsafe {
-			glow::Context::from_loader_function(|s| {
-				let s = CString::new(s).expect("proc name should not contain nul bytes");
-				gl_window.get_proc_address(&s)
-			})
-		});
-
-		let egui_glow = egui_glow::EguiGlow::new(event_loop, Arc::clone(&gl), None, None, true);
-		self.root.setup(&egui_glow.egui_ctx);
-
-		let proxy = self.proxy.clone();
-		egui_glow
-			.egui_ctx
-			.set_request_repaint_callback(move |info| {
-				_ = proxy.send_event(UserEvent::RequestRepaint(info.delay));
-			});
-
-		gl_window.window().set_visible(true);
-
-		self.surfaced = Some(Surfaced {
-			frame: Frame {
-				handle: self.handle.clone(),
-				gl,
-				window: gl_window.window.clone(),
-			},
-			egui_glow,
-			gl_window,
-			repaint_delay: Duration::MAX,
-		});
-		self.handle.visible.store(true, Ordering::Relaxed);
-	}
-
-	fn destroy_window(&mut self) {
-		if let Some(mut surfaced) = self.surfaced.take() {
-			surfaced.egui_glow.destroy();
-		}
-		self.handle.visible.store(true, Ordering::Relaxed);
 	}
 
 	fn redraw(&mut self, event_loop: &ActiveEventLoop) {
@@ -391,8 +206,15 @@ impl<T: RootWidget> Runner<T> {
 			surfaced
 				.frame
 				.gl
-				.clear_color(27.0 / 255.0, 27.0 / 255.0, 27.0 / 255.0, 1.0);
-			surfaced.frame.gl.clear(glow::COLOR_BUFFER_BIT);
+				.as_ref()
+				.unwrap()
+				.clear_color(27.0 / 255.0, 27.0 / 255.0, 27.0 / 255.0, 1.0); // TODO: let user choose bg color
+			surfaced
+				.frame
+				.gl
+				.as_ref()
+				.unwrap()
+				.clear(glow::COLOR_BUFFER_BIT);
 		}
 		surfaced.egui_glow.paint(surfaced.gl_window.window());
 		surfaced
@@ -412,34 +234,84 @@ impl<T: RootWidget> Runner<T> {
 	}
 }
 
-impl<T: RootWidget> ApplicationHandler<UserEvent> for Runner<T> {
-	fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-		if self.viewport_builder.visible.unwrap_or(true) && self.surfaced.is_none() {
-			self.ensure_window(event_loop);
-		}
+impl<T: RootWidget> Runner for GlowRunner<T> {
+	fn is_visible(&self) -> bool {
+		self.viewport_builder.visible.unwrap_or(true)
 	}
 
-	fn new_events(&mut self, _event_loop: &ActiveEventLoop, cause: StartCause) {
-		if let StartCause::ResumeTimeReached { .. } = cause
-			&& let Some(surfaced) = &self.surfaced
-		{
+	fn has_window(&self) -> bool {
+		self.surfaced.is_some()
+	}
+
+	fn ensure_window(&mut self, event_loop: &ActiveEventLoop) {
+		if self.surfaced.is_some() {
+			return;
+		}
+
+		let gl_window = unsafe { GlutinWindowContext::new(&self.egui_ctx, event_loop, &self.viewport_builder) };
+
+		let gl = Arc::new(unsafe {
+			glow::Context::from_loader_function(|s| {
+				let s = CString::new(s).expect("proc name should not contain nul bytes");
+				gl_window.get_proc_address(&s)
+			})
+		});
+
+		let egui_glow = egui_glow::EguiGlow::new(event_loop, Arc::clone(&gl), None, None, true);
+		self.root.setup(&egui_glow.egui_ctx);
+
+		let proxy = self.proxy.clone();
+		egui_glow
+			.egui_ctx
+			.set_request_repaint_callback(move |info| {
+				_ = proxy.send_event(UserEvent::RequestRepaint(info.delay));
+			});
+
+		gl_window.window().set_visible(true);
+
+		self.surfaced = Some(Surfaced {
+			frame: Frame {
+				handle: self.handle.clone(),
+				gl: Some(gl),
+				window: gl_window.window.clone(),
+				#[cfg(feature = "wgpu")]
+				render_state: None,
+			},
+			egui_glow,
+			gl_window,
+			repaint_delay: Duration::MAX,
+		});
+		self.handle.visible.store(true, Ordering::Relaxed);
+	}
+
+	fn destroy_window(&mut self) {
+		if let Some(mut surfaced) = self.surfaced.take() {
+			surfaced.egui_glow.destroy();
+		}
+		self.handle.visible.store(true, Ordering::Relaxed);
+	}
+
+	fn update(&mut self) {
+		let span = tracing::span!(tracing::Level::INFO, "app_tick");
+		let _enter = span.enter();
+		if let Err(e) = self.root.update() {
+			let (summary, details) = self.root.error(&e);
+			self.error_dialog.emit(summary, details);
+		}
+		if let Some(surfaced) = self.surfaced.as_mut() {
 			surfaced.gl_window.window().request_redraw();
 		}
 	}
 
-	fn user_event(&mut self, event_loop: &ActiveEventLoop, event: UserEvent) {
-		match event {
-			UserEvent::Show => self.ensure_window(event_loop),
-			UserEvent::Hide => self.destroy_window(),
-			UserEvent::Exit => event_loop.exit(),
-			UserEvent::RequestRepaint(delay) => {
-				if let Some(surfaced) = self.surfaced.as_mut() {
-					surfaced.repaint_delay = delay;
-				}
-			}
-			UserEvent::MessageReady => {
-				self.update();
-			}
+	fn request_redraw(&self) {
+		if let Some(surfaced) = &self.surfaced {
+			surfaced.gl_window.window().request_redraw();
+		}
+	}
+
+	fn set_repaint_delay(&mut self, delay: Duration) {
+		if let Some(surfaced) = self.surfaced.as_mut() {
+			surfaced.repaint_delay = delay;
 		}
 	}
 
@@ -472,9 +344,5 @@ impl<T: RootWidget> ApplicationHandler<UserEvent> for Runner<T> {
 		if response.repaint {
 			surfaced.gl_window.window().request_redraw();
 		}
-	}
-
-	fn exiting(&mut self, _event_loop: &ActiveEventLoop) {
-		self.destroy_window();
 	}
 }
