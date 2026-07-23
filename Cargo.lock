@@ -528,7 +528,7 @@ dependencies = [
 
 [[package]]
 name = "egelm"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "crossbeam-channel",
  "ctrlc",
@@ -548,7 +548,7 @@ dependencies = [
 
 [[package]]
 name = "egelm-macros"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "egelm",
  "proc-macro2",

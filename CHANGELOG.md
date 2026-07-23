@@ -1,3 +1,8 @@
+## [0.2.1] - 2026-07-23
+
+- Ability to change the bg color
+- **actually** make `wgpu` the default renderer
+
 ## [0.2.0] - 2026-07-23
 
 - Add wgpu renderer

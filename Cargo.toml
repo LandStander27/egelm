@@ -35,7 +35,7 @@ enable-all-features = true
 shared-version = true
 
 [workspace.package]
-version = "0.2.0"
+version = "0.2.1"
 edition = "2024"
 description = "A simple Elm-like framework for building GUI applications in Rust using egui."
 license = "MIT"
@@ -56,7 +56,7 @@ glow = ["dep:egui_glow", "dep:glutin", "dep:glutin-winit"]
 wgpu = ["dep:egui-wgpu", "dep:pollster"]
 
 [dependencies]
-egelm-macros = { version = "=0.2.0", path = "./egelm-macros" }
+egelm-macros = { version = "=0.2.1", path = "./egelm-macros" }
 
 ctrlc = { version = "3.5.2", optional = true }
 tracing = { version = "0.1.44", optional = true }
