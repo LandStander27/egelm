@@ -33,7 +33,7 @@ resolver = "3"
 members = ["egelm-macros"]
 
 [workspace.package]
-version = "0.0.0"
+version = "0.1.0"
 edition = "2024"
 description = "A simple Elm-like framework for building GUI applications in Rust using egui."
 license = "MIT"
@@ -52,7 +52,7 @@ tracing = ["dep:tracing"]
 emojis = ["dep:emojis"]
 
 [dependencies]
-egelm-macros = { version = "=0.0.0", path = "./egelm-macros" }
+egelm-macros = { version = "=0.1.0", path = "./egelm-macros" }
 
 ctrlc = { version = "3.5.2", optional = true }
 tracing = { version = "0.1.44", optional = true }
