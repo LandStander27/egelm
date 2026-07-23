@@ -3,3 +3,4 @@
 - Init commit
 - Add docs
 - Call tick_children_auto() within update_route_error()
+- Add cargo-release and git-cliff
