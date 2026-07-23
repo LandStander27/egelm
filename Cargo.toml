@@ -15,6 +15,9 @@ pre-release-hook = [
 	"--tag",
 	"{{version}}",
 ]
+pre-release-replacements = [
+	{ file = "README.md", search = "egelm = .*", replace = "{{crate_name}} = \"{{version}}\"" },
+]
 
 [workspace]
 resolver = "3"
