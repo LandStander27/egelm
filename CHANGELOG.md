@@ -1,3 +1,12 @@
+## [0.2.0] - 2026-07-23
+
+- Add wgpu renderer
+- Make wgpu the default
+- Make `Runner` generic
+- Fix `emoji` feature gate
+- Remove unused `Widget::init` function
+- Add README
+
 ## [0.1.1] - 2026-07-23
 
 - Fix release commit message
