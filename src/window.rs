@@ -319,6 +319,11 @@ pub trait RootWidget: Widget + 'static {
 	/// when a hidden window is shown and recreated.
 	#[expect(unused_variables)]
 	fn setup(&mut self, ctx: &egui::Context) {}
+
+	/// Set the RGBA clear color for the native window. The default implementation returns a dark gray color.
+	fn clear_color(&self) -> [u8; 4] {
+		[27, 27, 27, 255]
+	}
 }
 
 /// A widget together with its message queue and communication context.

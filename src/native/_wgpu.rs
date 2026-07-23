@@ -17,7 +17,6 @@ struct Surfaced {
 	window: Arc<winit::window::Window>,
 	egui_winit: egui_winit::State,
 	viewport_info: egui::ViewportInfo,
-	painter: egui_wgpu::winit::Painter,
 	repaint_delay: Duration,
 	frame: Frame,
 }
@@ -27,6 +26,7 @@ pub(crate) struct WgpuRunner<T: RootWidget> {
 	viewport_builder: egui::ViewportBuilder,
 	egui_ctx: egui::Context,
 	proxy: EventLoopProxy<UserEvent>,
+	painter: Option<egui_wgpu::winit::Painter>,
 	surfaced: Option<Surfaced>,
 	error_dialog: crate::window::error_dialog::ErrorDialog,
 	handle: Handle,
@@ -39,6 +39,7 @@ impl<T: RootWidget> WgpuRunner<T> {
 			root,
 			viewport_builder: options,
 			proxy,
+			painter: None,
 			surfaced: None,
 			egui_ctx: egui::Context::default(),
 			error_dialog: crate::window::error_dialog::ErrorDialog::default(),
@@ -98,15 +99,24 @@ impl<T: RootWidget> WgpuRunner<T> {
 		let primitives = self
 			.egui_ctx
 			.tessellate(output.shapes, output.pixels_per_point);
-		surfaced.painter.paint_and_update_textures(
-			egui::ViewportId::ROOT,
-			output.pixels_per_point,
-			[27.0 / 255.0, 27.0 / 255.0, 27.0 / 255.0, 1.0],
-			&primitives,
-			&output.textures_delta,
-			Vec::new(),
-			&surfaced.window,
-		);
+		let clear_color = self.root.clear_color();
+		self.painter
+			.as_mut()
+			.expect("wgpu painter was not initialized")
+			.paint_and_update_textures(
+				egui::ViewportId::ROOT,
+				output.pixels_per_point,
+				[
+					clear_color[0] as f32 / 255.0,
+					clear_color[1] as f32 / 255.0,
+					clear_color[2] as f32 / 255.0,
+					clear_color[3] as f32 / 255.0,
+				],
+				&primitives,
+				&output.textures_delta,
+				Vec::new(),
+				&surfaced.window,
+			);
 		surfaced.window.set_visible(true);
 
 		event_loop.set_control_flow(if surfaced.repaint_delay.is_zero() {
@@ -142,12 +152,14 @@ impl<T: RootWidget> Runner for WgpuRunner<T> {
 		);
 		egui_winit::apply_viewport_builder_to_window(&self.egui_ctx, &window, &self.viewport_builder);
 
-		let mut painter = pollster::block_on(egui_wgpu::winit::Painter::new(
-			self.egui_ctx.clone(),
-			egui_wgpu::WgpuConfiguration::default(),
-			self.viewport_builder.transparent.unwrap_or(false),
-			egui_wgpu::RendererOptions::default(),
-		));
+		let painter = self.painter.get_or_insert_with(|| {
+			pollster::block_on(egui_wgpu::winit::Painter::new(
+				self.egui_ctx.clone(),
+				egui_wgpu::WgpuConfiguration::default(),
+				self.viewport_builder.transparent.unwrap_or(false),
+				egui_wgpu::RendererOptions::default(),
+			))
+		});
 		pollster::block_on(painter.set_window(egui::ViewportId::ROOT, Some(window.clone()))).expect("could not initialize wgpu surface");
 		let render_state = painter
 			.render_state()
@@ -180,15 +192,16 @@ impl<T: RootWidget> Runner for WgpuRunner<T> {
 			window,
 			egui_winit,
 			viewport_info: egui::ViewportInfo::default(),
-			painter,
 			repaint_delay: Duration::MAX,
 		});
 		self.handle.visible.store(true, Ordering::Relaxed);
 	}
 
 	fn destroy_window(&mut self) {
-		if let Some(mut surfaced) = self.surfaced.take() {
-			pollster::block_on(surfaced.painter.set_window(egui::ViewportId::ROOT, None)).expect("could not release wgpu surface");
+		if self.surfaced.take().is_some()
+			&& let Some(painter) = &mut self.painter
+		{
+			pollster::block_on(painter.set_window(egui::ViewportId::ROOT, None)).expect("could not release wgpu surface");
 		}
 		self.handle.visible.store(false, Ordering::Relaxed);
 	}
@@ -235,8 +248,9 @@ impl<T: RootWidget> Runner for WgpuRunner<T> {
 		if let WindowEvent::Resized(size) = event
 			&& let (Some(width), Some(height)) = (NonZeroU32::new(size.width), NonZeroU32::new(size.height))
 		{
-			surfaced
-				.painter
+			self.painter
+				.as_mut()
+				.expect("wgpu painter was not initialized")
 				.on_window_resized(egui::ViewportId::ROOT, width, height);
 		}
 		let response = surfaced

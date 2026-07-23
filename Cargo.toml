@@ -48,7 +48,7 @@ missing_docs = "warn"
 tabs_in_doc_comments = "allow"
 
 [features]
-default = ["ctrlc", "tracing", "emoji", "glow", "wgpu"]
+default = ["ctrlc", "tracing", "emoji", "wgpu"]
 ctrlc = ["dep:ctrlc"]
 tracing = ["dep:tracing"]
 emoji = ["dep:emojis"]

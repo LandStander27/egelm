@@ -201,14 +201,15 @@ impl<T: RootWidget> GlowRunner<T> {
 			self.error_dialog.render(ui, &mut surfaced.frame);
 		});
 
+		let clear_color = self.root.clear_color();
 		unsafe {
 			use glow::HasContext as _;
-			surfaced
-				.frame
-				.gl
-				.as_ref()
-				.unwrap()
-				.clear_color(27.0 / 255.0, 27.0 / 255.0, 27.0 / 255.0, 1.0); // TODO: let user choose bg color
+			surfaced.frame.gl.as_ref().unwrap().clear_color(
+				clear_color[0] as f32 / 255.0,
+				clear_color[1] as f32 / 255.0,
+				clear_color[2] as f32 / 255.0,
+				clear_color[3] as f32 / 255.0,
+			); // TODO: let user choose bg color
 			surfaced
 				.frame
 				.gl
