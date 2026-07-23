@@ -1,3 +1,5 @@
+//! Internal modal used to present queued application errors.
+
 use crate::prelude::*;
 use crate::widgets::prelude::*;
 
@@ -8,11 +10,13 @@ struct QueuedError {
 }
 
 #[derive(Default, Debug)]
+/// A first-in, first-out queue of errors displayed in a modal dialog.
 pub struct ErrorDialog {
 	errors: std::collections::VecDeque<QueuedError>,
 }
 
 impl ErrorDialog {
+	/// Adds an error summary and optional details to the display queue.
 	pub fn emit(&mut self, summary: String, details: Option<String>) {
 		self.errors.push_back(QueuedError { summary, details });
 	}

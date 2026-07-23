@@ -1,3 +1,5 @@
+//! OpenGL rendering resources and native window controls.
+
 use crate::prelude::*;
 use crate::widgets::prelude::*;
 
@@ -14,6 +16,11 @@ use winit::event::{StartCause, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, EventLoopProxy};
 use winit::raw_window_handle::HasWindowHandle as _;
 
+/// Rendering resources and window controls for the current frame.
+///
+/// A mutable `Frame` is passed to widget rendering methods. It dereferences to
+/// [`Handle`], allowing window-control methods such as [`Handle::exit`] to be
+/// called directly on it.
 pub struct Frame {
 	handle: Handle,
 	gl: Arc<glow::Context>,
@@ -21,14 +28,17 @@ pub struct Frame {
 }
 
 impl Frame {
+	/// Returns the OpenGL context used to paint the frame.
 	pub fn gl(&self) -> &Arc<glow::Context> {
 		&self.gl
 	}
 
+	/// Returns the native `winit` window associated with the frame.
 	pub fn winit_window(&self) -> &Arc<winit::window::Window> {
 		&self.window
 	}
 
+	/// Returns an owned handle for controlling the application window.
 	pub fn handle(&self) -> Handle {
 		self.handle.clone()
 	}
@@ -48,6 +58,21 @@ impl std::ops::DerefMut for Frame {
 	}
 }
 
+/// A cloneable, thread-safe handle to the application window.
+///
+/// Before an application starts, a default handle records visibility changes
+/// but has no event loop to notify. Once initialized by [`crate::window::App`],
+/// its methods may be called from worker tasks to wake, show, hide, or close
+/// the window.
+///
+/// # Examples
+///
+/// ```
+/// use egelm::prelude::Handle;
+///
+/// let handle = Handle::default();
+/// assert!(!handle.is_visible());
+/// ```
 #[derive(Debug, Clone, Default)]
 pub struct Handle {
 	proxy: Arc<std::sync::OnceLock<EventLoopProxy<UserEvent>>>,
@@ -63,30 +88,45 @@ impl Handle {
 		self.proxy.set(proxy).unwrap();
 	}
 
+	/// Requests that the application process pending messages and repaint.
+	///
+	/// This is a no-op until the application event loop has been initialized.
 	pub fn request_repaint(&self) {
 		if let Some(proxy) = self.proxy.get() {
 			_ = proxy.send_event(UserEvent::MessageReady);
 		}
 	}
 
+	/// Hides and destroys the native window while keeping the event loop alive.
+	///
+	/// Calling [`show`](Self::show) later creates a new native window. Before
+	/// event-loop initialization, this only records the handle as hidden.
 	pub fn hide(&self) {
 		if let Some(proxy) = self.proxy.get() {
 			_ = proxy.send_event(UserEvent::Hide);
 		}
-		self.visible.store(false, Ordering::Relaxed);
+		// self.visible.store(false, Ordering::Relaxed);
 	}
 
+	/// Shows the application window.
+	///
+	/// If the window was destroyed by [`hide`](Self::hide), it is recreated.
+	/// Before event-loop initialization, this only records the handle as visible.
 	pub fn show(&self) {
 		if let Some(proxy) = self.proxy.get() {
 			_ = proxy.send_event(UserEvent::Show);
 		}
-		self.visible.store(true, Ordering::Relaxed);
+		// self.visible.store(true, Ordering::Relaxed);
 	}
 
+	/// Returns whether this handle currently considers the window visible.
 	pub fn is_visible(&self) -> bool {
 		self.visible.load(Ordering::Relaxed)
 	}
 
+	/// Requests termination of the application event loop.
+	///
+	/// This is a no-op until the application event loop has been initialized.
 	pub fn exit(&self) {
 		if let Some(proxy) = self.proxy.get() {
 			_ = proxy.send_event(UserEvent::Exit);
@@ -296,12 +336,14 @@ impl<T: RootWidget> Runner<T> {
 			gl_window,
 			repaint_delay: Duration::MAX,
 		});
+		self.handle.visible.store(true, Ordering::Relaxed);
 	}
 
 	fn destroy_window(&mut self) {
 		if let Some(mut surfaced) = self.surfaced.take() {
 			surfaced.egui_glow.destroy();
 		}
+		self.handle.visible.store(true, Ordering::Relaxed);
 	}
 
 	fn redraw(&mut self, event_loop: &ActiveEventLoop) {

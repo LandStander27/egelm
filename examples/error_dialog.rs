@@ -1,3 +1,5 @@
+//! Demonstrates routing widget errors to the root error dialog.
+
 use egelm::prelude::*;
 
 #[derive(Debug, Widget)]

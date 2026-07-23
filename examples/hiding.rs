@@ -1,3 +1,5 @@
+//! Demonstrates hiding and restoring the native application window.
+
 use egelm::prelude::*;
 
 #[derive(Debug)]
@@ -42,7 +44,7 @@ impl RootWidget for ExampleApp {}
 
 #[tokio::main]
 async fn main() {
-	let app = App::new(ExampleApp {});
+	let app = App::new(ExampleApp);
 
 	app.run(ViewportBuilder::default().with_title("Simple Example"))
 		.unwrap();

@@ -1,3 +1,29 @@
+//! Define widgets, route their messages, and run an application.
+//!
+//! [`Widget`](crate::window::Widget) describes the event-driven lifecycle.
+//! [`LeafWidget`](crate::window::LeafWidget) is a simpler rendering-only
+//! alternative, while [`RootWidget`](crate::window::RootWidget) adds behavior for
+//! the top-level application window. [`Context`](crate::window::Context) and
+//! [`Sender`](crate::window::Sender) carry typed
+//! messages between those widgets.
+//!
+//! # Examples
+//!
+//! ```
+//! use egelm::prelude::*;
+//!
+//! #[derive(Debug)]
+//! struct Counter(u32);
+//!
+//! impl LeafWidget for Counter {
+//!     fn render(&mut self, ui: &mut egui::Ui, _frame: &mut Frame) {
+//!         if ui.button(self.0.to_string()).clicked() {
+//!             self.0 += 1;
+//!         }
+//!     }
+//! }
+//! ```
+
 use std::any::Any;
 use std::sync::{Arc, Mutex, OnceLock};
 
@@ -5,6 +31,7 @@ use egui_winit::winit::event_loop::EventLoop;
 
 use crate::prelude::*;
 
+/// A reusable modal dialog containing application and license information.
 pub mod about_dialog;
 pub(crate) mod error_dialog;
 
@@ -21,6 +48,10 @@ impl<T: std::fmt::Debug + Any> AnyDebug for T {
 	}
 }
 
+/// A cloneable callback for delivering typed widget messages.
+///
+/// Senders are obtained from a [`Context`] and can be moved into callbacks or
+/// transformed with [`map`](Self::map).
 pub struct Sender<M> {
 	f: Arc<dyn Fn(M) + Send + Sync>,
 }
@@ -36,16 +67,26 @@ impl<M: 'static> Sender<M> {
 		Self { f: Arc::new(f) }
 	}
 
+	/// Delivers a message to this sender's callback.
 	pub fn emit(&self, msg: M) {
 		(self.f)(msg)
 	}
 
+	/// Creates a sender that transforms its input before forwarding it.
+	///
+	/// This is useful when a child component produces a different message type
+	/// than its parent consumes.
 	pub fn map<N: 'static>(&self, f: impl Fn(N) -> M + Send + Sync + 'static) -> Sender<N> {
 		let inner = self.clone();
 		Sender::new(move |n| inner.emit(f(n)))
 	}
 }
 
+/// Communication channels and task utilities for a [`Widget`].
+///
+/// A context lets a widget enqueue its own messages, report errors, send
+/// output to its parent, and start asynchronous work. Clones refer to the same
+/// underlying channels.
 pub struct Context<W: Widget> {
 	input: Sender<W::Message>,
 	error: Sender<W::Error>,
@@ -74,6 +115,13 @@ impl<W: Widget> std::fmt::Debug for Context<W> {
 }
 
 impl<W: Widget + 'static> Context<W> {
+	/// Spawns an asynchronous task with a clone of this context.
+	///
+	/// The task can emit messages or errors after performing background work.
+	///
+	/// # Panics
+	///
+	/// Panics if called outside a Tokio runtime.
 	pub fn spawn<F, Fut>(&self, f: F)
 	where
 		F: FnOnce(Context<W>) -> Fut + Send + 'static,
@@ -86,10 +134,15 @@ impl<W: Widget + 'static> Context<W> {
 		});
 	}
 
+	/// Enqueues a message for this widget and requests a repaint.
 	pub fn emit(&self, msg: W::Message) {
 		self.input.emit(msg);
 	}
 
+	/// Sends an output value to this widget's parent.
+	///
+	/// If the widget has no output channel, the value is discarded and a
+	/// warning is logged.
 	pub fn output(&self, msg: W::Output) {
 		if let Some(output) = &self.output {
 			output.emit(msg);
@@ -98,41 +151,118 @@ impl<W: Widget + 'static> Context<W> {
 		}
 	}
 
+	/// Routes an error toward the root widget's error handler.
 	pub fn error(&self, err: W::Error) {
 		self.error.emit(err);
 	}
 
+	/// Returns a cloneable sender for errors from this widget.
 	pub fn error_sender(&self) -> Sender<W::Error> {
 		self.error.clone()
 	}
 
+	/// Returns a cloneable sender for messages to this widget.
 	pub fn input_sender(&self) -> Sender<W::Message> {
 		self.input.clone()
 	}
 }
 
+/// An event-driven user-interface component.
+///
+/// A widget renders itself in [`view`](Self::view), handles queued messages in
+/// [`update`](Self::update), and may perform per-cycle work in
+/// [`tick`](Self::tick). Deriving [`egelm_macros::Widget`] implements child
+/// ticking for structs containing [`Managed`] fields.
+///
+/// # Examples
+///
+/// ```
+/// use egelm::prelude::*;
+///
+/// #[derive(Debug, Widget)]
+/// struct Label(String);
+///
+/// impl Widget for Label {
+///     type Message = String;
+///     type Output = ();
+///     type Error = ();
+///
+///     fn view(&mut self, ui: &mut egui::Ui, _frame: &mut Frame, _ctx: &Context<Self>) {
+///         ui.label(&self.0);
+///     }
+///
+///     fn update(&mut self, message: Self::Message, _handle: &Handle, _ctx: &Context<Self>) -> Result<(), Self::Error> {
+///         self.0 = message;
+///         Ok(())
+///     }
+/// }
+/// ```
 pub trait Widget: TickChildren + std::fmt::Debug + Sized {
+	/// Messages consumed by [`update`](Self::update).
 	type Message: Send + std::fmt::Debug + 'static;
+	/// Values this widget can send to its parent.
 	type Output: Send + 'static;
+	/// Errors produced while updating or ticking this widget.
 	type Error: std::fmt::Debug + Send + Sync + 'static;
 
+	/// Renders the widget into the current `egui` user interface.
 	fn view(&mut self, ui: &mut egui::Ui, frame: &mut Frame, ctx: &Context<Self>);
 
+	/// Handles one queued message.
+	///
+	/// The default implementation ignores the message.
+	///
+	/// # Errors
+	///
+	/// Returns a widget-defined error when the message cannot be handled. The
+	/// framework routes it to the root widget's [`RootWidget::error`] method.
 	#[expect(unused_variables)]
 	fn update(&mut self, msg: Self::Message, handle: &Handle, ctx: &Context<Self>) -> Result<(), Self::Error> {
 		Ok(())
 	}
 
+	/// Performs work once during an application update cycle.
+	///
+	/// The default implementation does nothing.
+	///
+	/// # Errors
+	///
+	/// Returns a widget-defined error when the tick fails. The framework routes
+	/// it to the root widget's [`RootWidget::error`] method.
 	#[expect(unused_variables)]
 	fn tick(&mut self, ctx: &Context<Self>) -> Result<(), Self::Error> {
 		Ok(())
 	}
 
+	/// Provides an optional widget-initialization hook.
+	///
+	/// The default implementation does nothing. Callers that manage a widget's
+	/// lifecycle may invoke this hook with its communication context.
 	#[expect(unused_variables)]
 	fn init(&mut self, ctx: &Context<Self>) {}
 }
 
+/// A rendering-only widget with no messages, output, or errors.
+///
+/// Implementing this trait automatically implements [`Widget`] and
+/// [`TickChildren`] with unit associated types.
+///
+/// # Examples
+///
+/// ```
+/// use egelm::prelude::*;
+///
+/// #[derive(Debug)]
+/// struct Heading;
+///
+/// impl LeafWidget for Heading {
+///     fn render(&mut self, ui: &mut egui::Ui, _frame: &mut Frame) {
+///         ui.heading("Settings");
+///     }
+/// }
+/// ```
 pub trait LeafWidget: std::fmt::Debug {
+	/// Renders the leaf widget into the current `egui` user interface.
 	fn render(&mut self, ui: &mut egui::Ui, frame: &mut Frame);
 }
 
@@ -158,11 +288,23 @@ impl<T: LeafWidget> Widget for T {
 	}
 }
 
+/// Extra behavior for the root widget owned by an [`App`].
+///
+/// Implement this trait to customize window closing, error presentation, and
+/// one-time rendering setup.
 pub trait RootWidget: Widget + 'static {
+	/// Handles a native request to close the window.
+	///
+	/// The default implementation exits the application. An implementation may
+	/// hide the window or ask for confirmation instead.
 	fn close(&mut self, frame: &mut Frame) {
 		frame.exit();
 	}
 
+	/// Converts a widget error into dialog text.
+	///
+	/// The returned tuple contains a summary and optional details. The default
+	/// implementation reports that error translation is not implemented.
 	#[expect(unused_variables)]
 	fn error(&mut self, err: &Self::Error) -> (String, Option<String>) {
 		(
@@ -171,10 +313,18 @@ pub trait RootWidget: Widget + 'static {
 		)
 	}
 
+	/// Configures `egui` after a native rendering context is created.
+	///
+	/// The default implementation does nothing. The method may be called again
+	/// when a hidden window is shown and recreated.
 	#[expect(unused_variables)]
 	fn setup(&mut self, ctx: &egui::Context) {}
 }
 
+/// A widget together with its message queue and communication context.
+///
+/// `Managed<T>` dereferences to `T`, allowing direct access to the wrapped
+/// widget. Its update methods drain queued messages before ticking the widget.
 #[derive(Debug)]
 pub struct Managed<T: Widget> {
 	widget: T,
@@ -198,6 +348,11 @@ impl<T: Widget> std::ops::DerefMut for Managed<T> {
 }
 
 impl<T: Widget + 'static> Managed<T> {
+	/// Wraps a widget with input, output, and error routing.
+	///
+	/// `output` may be `None` for a widget whose output should be discarded.
+	/// Messages sent through the managed widget's context wake the supplied
+	/// application `handle`.
 	pub fn new(output: impl Into<Option<Sender<T::Output>>>, error: Sender<T::Error>, handle: &Handle, widget: T) -> Self {
 		let (tx, rx) = crossbeam_channel::unbounded();
 		let wake = handle.clone();
@@ -244,10 +399,15 @@ impl<T: Widget + 'static> Managed<T> {
 	// 	}
 	// }
 
+	/// Renders the wrapped widget.
 	pub fn render(&mut self, ui: &mut egui::Ui, frame: &mut Frame) {
 		self.widget.view(ui, frame, &self.ctx);
 	}
 
+	/// Drains messages, ticks the widget, and forwards errors through its context.
+	///
+	/// Unlike [`update`](Self::update), this method does not tick managed child
+	/// widgets and does not return errors to its caller.
 	pub fn update_route_error(&mut self) {
 		while let Ok(msg) = self.rx.try_recv() {
 			if let Err(e) = self.widget.update(msg, &self.handle, &self.ctx) {
@@ -255,11 +415,18 @@ impl<T: Widget + 'static> Managed<T> {
 			}
 		}
 
+		self.widget.tick_children_auto();
 		if let Err(e) = self.widget.tick(&self.ctx) {
 			self.ctx.error(e);
 		}
 	}
 
+	/// Drains messages and ticks this widget and its managed children.
+	///
+	/// # Errors
+	///
+	/// Returns the first error produced by [`Widget::update`] or [`Widget::tick`]
+	/// for the wrapped widget. Child errors are routed through their contexts.
 	pub fn update(&mut self) -> Result<(), T::Error> {
 		while let Ok(msg) = self.rx.try_recv() {
 			self.widget.update(msg, &self.handle, &self.ctx)?;
@@ -270,17 +437,64 @@ impl<T: Widget + 'static> Managed<T> {
 	}
 }
 
+/// Updates child widgets managed by a parent widget.
+///
+/// The [`egelm_macros::Widget`] derive macro implements this trait by calling
+/// [`Managed::update_route_error`] on each named `Managed<T>` field.
+///
+/// # Examples
+///
+/// ```
+/// use egelm::prelude::*;
+///
+/// #[derive(Debug, Widget)]
+/// struct NoChildren;
+///
+/// let mut widget = NoChildren;
+/// widget.tick_children_auto();
+/// ```
 pub trait TickChildren {
+	/// Updates all managed child widgets.
+	///
+	/// The default implementation does nothing.
 	fn tick_children_auto(&mut self) {}
 }
 // impl<T> TickChildren for T {}
 
+/// Owns a root widget and runs it in a native event loop.
+///
+/// Create an application with [`new`](Self::new), or use
+/// [`new_factory`](Self::new_factory) when construction needs the root context
+/// or window handle. Call [`run`](Self::run) once to open its window.
 pub struct App<T: RootWidget> {
 	root: Managed<T>,
 	ctrlc_handler: bool,
 }
 
 impl<T: RootWidget> App<T> {
+	/// Creates an application from an existing root widget.
+	///
+	/// # Panics
+	///
+	/// Panics if another `App` has already been constructed in this process.
+	/// `egelm` currently maintains one global root-error channel.
+	///
+	/// # Examples
+	///
+	/// ```
+	/// use egelm::prelude::*;
+	///
+	/// #[derive(Debug)]
+	/// struct Root;
+	/// impl LeafWidget for Root {
+	///     fn render(&mut self, ui: &mut egui::Ui, _frame: &mut Frame) {
+	///         ui.label("Ready");
+	///     }
+	/// }
+	/// impl RootWidget for Root {}
+	///
+	/// let app = App::new(Root);
+	/// ```
 	pub fn new(root: T) -> Self {
 		// let (tx, rx) = crossbeam_channel::unbounded();
 		// crate::window::ERROR_RX
@@ -297,6 +511,15 @@ impl<T: RootWidget> App<T> {
 		App::new_factory(move |_, _| root)
 	}
 
+	/// Creates an application with access to its context and window handle.
+	///
+	/// The factory can clone either argument into the root widget before it is
+	/// placed in the application.
+	///
+	/// # Panics
+	///
+	/// Panics if another `App` has already been constructed in this process.
+	/// `egelm` currently maintains one global root-error channel.
 	pub fn new_factory<F: FnOnce(&Context<T>, &Handle) -> T>(factory: F) -> Self {
 		let (tx, rx) = crossbeam_channel::unbounded();
 		crate::window::ERROR_RX
@@ -340,11 +563,45 @@ impl<T: RootWidget> App<T> {
 		}
 	}
 
+	/// Disables installation of the default Ctrl-C exit handler.
+	///
+	/// This has an effect only when the crate's `ctrlc` feature is enabled.
 	pub fn without_ctrl_handler(mut self) -> Self {
 		self.ctrlc_handler = false;
 		self
 	}
 
+	/// Runs the native application event loop until exit is requested.
+	///
+	/// # Errors
+	///
+	/// Returns [`Error::EventLoopBuildFail`] if the event loop cannot be created,
+	/// [`Error::SetSigHandler`] when the optional Ctrl-C handler cannot be
+	/// installed, or [`Error::EventLoopFail`] if the running event loop fails.
+	///
+	/// # Panics
+	///
+	/// Platform window or OpenGL initialization failures currently panic. This
+	/// method may also panic when called from a thread on which `winit` does not
+	/// permit event-loop creation.
+	///
+	/// # Examples
+	///
+	/// ```no_run
+	/// use egelm::prelude::*;
+	///
+	/// #[derive(Debug)]
+	/// struct Root;
+	/// impl LeafWidget for Root {
+	///     fn render(&mut self, ui: &mut egui::Ui, _frame: &mut Frame) {
+	///         ui.label("Hello");
+	///     }
+	/// }
+	/// impl RootWidget for Root {}
+	///
+	/// App::new(Root).run(ViewportBuilder::default().with_title("Hello"))?;
+	/// # Ok::<(), egelm::error::Error>(())
+	/// ```
 	#[tracing::instrument(skip(self, options))]
 	pub fn run(self, options: ViewportBuilder) -> Result<(), Error> {
 		let event_loop = EventLoop::<crate::native::glow::UserEvent>::with_user_event()

@@ -1,14 +1,39 @@
+//! Build event-driven desktop interfaces with [`egui`].
+//!
+//! `egelm` supplies a small widget lifecycle, typed message routing, window
+//! management, and reusable dialogs on top of `egui`, `winit`, and OpenGL.
+//!
+//! # Examples
+//!
+//! ```
+//! use egelm::prelude::*;
+//!
+//! #[derive(Debug)]
+//! struct Greeting;
+//!
+//! impl LeafWidget for Greeting {
+//!     fn render(&mut self, ui: &mut egui::Ui, _frame: &mut Frame) {
+//!         ui.label("Hello from egelm");
+//!     }
+//! }
+//! ```
+
+/// Emoji lookup and display types.
 pub mod emoji;
+/// Errors produced by application and event-loop operations.
 pub mod error;
+/// Native rendering and window-system integration.
 pub mod native;
+/// Convenient re-exports for applications using `egelm`.
 pub mod prelude;
+/// Widget lifecycles, message routing, and application management.
 pub mod window;
 
+/// Reusable widgets supplied by `egelm`.
 pub mod widgets {
-	//! Contains common `egelm` widgets you can use
 	pub use crate::window::about_dialog::{AboutDialog, AboutDialogSettings};
 
-	/// Can be used to easily `use` common `egui` imports, as well as the widgets contained in `super`
+	/// Re-exports common `egui` types and all widgets in the parent module.
 	pub mod prelude {
 		pub use super::*;
 		pub use egui::{Align, Color32, Image, Label, Layout, Modal, RichText, ScrollArea, TextEdit, TextStyle, TextWrapMode};

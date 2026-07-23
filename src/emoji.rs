@@ -1,8 +1,18 @@
-//! Easily use Emojis in your egelm app
+//! Look up and display emoji in an `egelm` application.
 
-/// An Emoji type. Implements `ToString` for `Label`s
+/// A displayable emoji returned by [`emoji`].
 ///
-/// Get an `Emoji` by using [`emoji`]
+/// The value wraps static emoji metadata and implements [`std::fmt::Display`],
+/// so it can be passed to formatting macros or converted into a [`String`].
+///
+/// # Examples
+///
+/// ```
+/// use egelm::emoji::emoji;
+///
+/// let rocket = emoji("rocket");
+/// assert_eq!(rocket.to_string(), "🚀");
+/// ```
 pub struct Emoji {
 	inner: &'static emojis::Emoji,
 }
@@ -36,6 +46,11 @@ impl From<Emoji> for String {
 /// Returns an [`Emoji`] that you can use in [`egui::Label`]s.
 ///
 /// If the Emoji does not exist, it is replaced by a default and a [`tracing::warn`] will be created.
+///
+/// # Panics
+///
+/// Panics if the bundled emoji database does not contain the `no_entry`
+/// fallback. This should never happen.
 ///
 /// # Examples
 ///

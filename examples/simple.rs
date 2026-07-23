@@ -1,3 +1,5 @@
+//! Demonstrates a small application composed from managed widgets.
+
 use egelm::prelude::*;
 use egelm::widgets::prelude::*;
 

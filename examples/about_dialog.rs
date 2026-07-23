@@ -1,3 +1,5 @@
+//! Demonstrates opening the reusable about dialog.
+
 use egelm::prelude::*;
 use egelm::widgets::prelude::*;
 
