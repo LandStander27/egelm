@@ -1,6 +1,6 @@
 # egelm
 
-[![Validation](https://codeberg.org/Land/egelm/badges/workflows/test.yml/badge.svg?branch=master)](https://codeberg.org/Land/egelm/actions/workflows/test.yml)
+[![Validation](https://codeberg.org/Land/egelm/badges/workflows/test.yml/badge.svg?branch=master)](https://codeberg.org/Land/egelm/actions?workflow=test.yml)
 [![crates.io](https://img.shields.io/crates/v/egelm.svg)](https://crates.io/crates/egelm)
 [![docs.rs](https://docs.rs/egelm/badge.svg)](https://docs.rs/egelm)
 [![License](https://img.shields.io/crates/l/egelm.svg)](LICENSE)
