@@ -2,7 +2,6 @@
 
 use super::{Runner, UserEvent};
 use crate::prelude::*;
-use crate::widgets::prelude::*;
 
 use std::num::NonZeroU32;
 use std::sync::Arc;

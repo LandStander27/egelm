@@ -1,7 +1,6 @@
 //! Demonstrates a small application composed from managed widgets.
 
 use egelm::prelude::*;
-use egelm::widgets::prelude::*;
 
 #[derive(Debug, Widget, Default)]
 struct InputDialog {

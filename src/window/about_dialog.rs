@@ -1,7 +1,6 @@
 //! A reusable modal containing application details and legal information.
 
 use crate::prelude::*;
-use crate::widgets::prelude::*;
 
 #[derive(Debug, PartialEq, Default)]
 enum AboutTab {
@@ -10,92 +9,118 @@ enum AboutTab {
 	Legal,
 }
 
-/// Content displayed by an [`AboutDialog`].
+/// A modal about dialog with optional application details and legal information.
+///
+/// The application name is required; all other content can be added with the
+/// chainable setters. The dialog starts closed. Call [`open`](Self::open) in
+/// response to a user action, then render it as a [`LeafWidget`].
 ///
 /// # Examples
 ///
 /// ```
-/// use egelm::window::about_dialog::AboutDialogSettings;
+/// use egelm::window::about_dialog::AboutDialog;
 ///
-/// let settings = AboutDialogSettings {
-///     name: "My App".into(),
-///     icon_uri: "file:///tmp/icon.png".into(),
-///     version: "1.0.0".into(),
-///     developer: "Example Developer".into(),
-///     website_url: "https://example.com".into(),
-///     issues_url: "https://example.com/issues".into(),
-///     description: "A short description".into(),
-///     description_long: "A longer description of the application.".into(),
-///     license_year: 2026,
-///     license_name: "MIT".into(),
-///     license_text: "Permission is hereby granted...".into(),
-/// };
+/// let dialog = AboutDialog::new("My App")
+///     .version("1.0.0")
+///     .developer("Example Developer")
+///     .website_url("https://example.com")
+///     .description("A short description");
 /// ```
-#[derive(Debug)]
-pub struct AboutDialogSettings {
-	/// The application name shown in the dialog heading.
-	pub name: String,
-	/// The URI of the application icon.
-	pub icon_uri: String,
-	/// The application version string.
-	pub version: String,
-	/// The person or organization that develops the application.
-	pub developer: String,
-	/// The application's main website URL.
-	pub website_url: String,
-	/// The URL where users can report issues.
-	pub issues_url: String,
-	/// A short application tagline shown beneath its name.
-	pub description: String,
-	/// A longer application description shown on the details tab.
-	pub description_long: String,
-	/// The copyright year shown on the legal tab.
-	pub license_year: u32,
-	/// The name of the application's license.
-	pub license_name: String,
-	/// The full license text shown on the legal tab.
-	pub license_text: String,
-}
-
-/// A modal about dialog with details and legal tabs.
-///
-/// The dialog starts closed. Call [`open`](Self::open) in response to a user
-/// action, then render it as a [`LeafWidget`].
 #[derive(Debug)]
 pub struct AboutDialog {
 	open: bool,
 	tab: AboutTab,
-	settings: AboutDialogSettings,
+	name: String,
+	icon_uri: Option<String>,
+	version: Option<String>,
+	developer: Option<String>,
+	website_url: Option<String>,
+	issues_url: Option<String>,
+	description: Option<String>,
+	description_long: Option<String>,
+	license_year: Option<u32>,
+	license_name: Option<String>,
+	license_text: Option<String>,
 }
 
 impl AboutDialog {
-	/// Creates a closed dialog containing `settings`.
-	///
-	/// # Examples
-	///
-	/// ```ignore
-	/// use egelm::window::prelude:*;
-	///
-	/// let dialog = AboutDialog::new(AboutDialogSettings {
-	///     name: "My App".into(),
-	///     icon_uri: String::new(),
-	///     version: "1.0.0".into(),
-	///     developer: "Example Developer".into(),
-	///     website_url: "https://example.com".into(),
-	///     issues_url: "https://example.com/issues".into(),
-	///     description: "An example".into(),
-	///     description_long: "An example application.".into(),
-	///     license_year: 2026,
-	///     license_name: "MIT License".into(),
-	///     license_text: include_str!("../LICENSE").to_string(),
-	/// });
-	/// ```
-	pub fn new(settings: AboutDialogSettings) -> Self {
+	/// Creates a closed dialog for the application named `name`.
+	pub fn new(name: impl Into<String>) -> Self {
 		Self {
 			open: false,
 			tab: AboutTab::default(),
-			settings,
+			name: name.into(),
+			icon_uri: None,
+			version: None,
+			developer: None,
+			website_url: None,
+			issues_url: None,
+			description: None,
+			description_long: None,
+			license_year: None,
+			license_name: None,
+			license_text: None,
 		}
+	}
+
+	/// Sets the URI of the application icon.
+	pub fn icon_uri(mut self, icon_uri: impl Into<String>) -> Self {
+		self.icon_uri = Some(icon_uri.into());
+		self
+	}
+
+	/// Sets the application version string.
+	pub fn version(mut self, version: impl Into<String>) -> Self {
+		self.version = Some(version.into());
+		self
+	}
+
+	/// Sets the person or organization that develops the application.
+	pub fn developer(mut self, developer: impl Into<String>) -> Self {
+		self.developer = Some(developer.into());
+		self
+	}
+
+	/// Sets the application's main website URL.
+	pub fn website_url(mut self, website_url: impl Into<String>) -> Self {
+		self.website_url = Some(website_url.into());
+		self
+	}
+
+	/// Sets the URL where users can report issues.
+	pub fn issues_url(mut self, issues_url: impl Into<String>) -> Self {
+		self.issues_url = Some(issues_url.into());
+		self
+	}
+
+	/// Sets the short application tagline shown beneath its name.
+	pub fn description(mut self, description: impl Into<String>) -> Self {
+		self.description = Some(description.into());
+		self
+	}
+
+	/// Sets the longer application description shown with the details.
+	pub fn description_long(mut self, description_long: impl Into<String>) -> Self {
+		self.description_long = Some(description_long.into());
+		self
+	}
+
+	/// Sets the copyright year shown with the legal information.
+	pub fn license_year(mut self, license_year: u32) -> Self {
+		self.license_year = Some(license_year);
+		self
+	}
+
+	/// Sets the name of the application's license.
+	pub fn license_name(mut self, license_name: impl Into<String>) -> Self {
+		self.license_name = Some(license_name.into());
+		self
+	}
+
+	/// Sets the full license text.
+	pub fn license_text(mut self, license_text: impl Into<String>) -> Self {
+		self.license_text = Some(license_text.into());
+		self
 	}
 
 	/// Opens the dialog for display on its next render.
@@ -103,30 +128,60 @@ impl AboutDialog {
 		self.open = true;
 	}
 
-	fn details_tab(&self, ui: &mut egui::Ui) {
-		ui.label(format!("Developed by {}", self.settings.developer));
-		ui.add_space(6.0);
-		ui.hyperlink_to("Website", &self.settings.website_url);
-		ui.hyperlink_to("Report an issue", &self.settings.issues_url);
-		ui.add_space(10.0);
-		ui.label(
-			RichText::new(&self.settings.description_long)
-				.size(11.5)
-				.weak(),
-		);
+	fn has_details(&self) -> bool {
+		self.developer.is_some() || self.website_url.is_some() || self.issues_url.is_some() || self.description_long.is_some()
 	}
 
-	fn legal_tab(&mut self, ui: &mut egui::Ui) {
-		ui.label(RichText::new(&self.settings.license_name).strong());
-		ui.add_space(4.0);
-		ui.label(format!("© {} {}", self.settings.license_year, self.settings.developer));
-		ui.add_space(10.0);
-		ui.add(
-			TextEdit::multiline(&mut self.settings.license_text)
-				.desired_width(ui.available_width())
-				.font(TextStyle::Small)
-				.interactive(false),
-		);
+	fn has_legal(&self) -> bool {
+		self.license_year.is_some() || self.license_name.is_some() || self.license_text.is_some()
+	}
+
+	fn details(&self, ui: &mut egui::Ui) {
+		if let Some(developer) = &self.developer {
+			ui.label(format!("Developed by {developer}"));
+		}
+
+		if self.developer.is_some() && (self.website_url.is_some() || self.issues_url.is_some()) {
+			ui.add_space(6.0);
+		}
+
+		if let Some(website_url) = &self.website_url {
+			ui.hyperlink_to("Website", website_url);
+		}
+		if let Some(issues_url) = &self.issues_url {
+			ui.hyperlink_to("Report an issue", issues_url);
+		}
+
+		if let Some(description_long) = &self.description_long {
+			if self.developer.is_some() || self.website_url.is_some() || self.issues_url.is_some() {
+				ui.add_space(10.0);
+			}
+			ui.label(RichText::new(description_long).size(11.5).weak());
+		}
+	}
+
+	fn legal(&self, ui: &mut egui::Ui) {
+		if let Some(license_name) = &self.license_name {
+			ui.label(RichText::new(license_name).strong());
+		}
+
+		if let Some(license_year) = self.license_year {
+			if self.license_name.is_some() {
+				ui.add_space(4.0);
+			}
+			let copyright = match &self.developer {
+				Some(developer) => format!("© {license_year} {developer}"),
+				None => format!("© {license_year}"),
+			};
+			ui.label(copyright);
+		}
+
+		if let Some(license_text) = &self.license_text {
+			if self.license_name.is_some() || self.license_year.is_some() {
+				ui.add_space(10.0);
+			}
+			ui.add(Label::new(RichText::new(license_text).text_style(TextStyle::Small)).wrap_mode(TextWrapMode::Wrap));
+		}
 	}
 }
 
@@ -142,41 +197,56 @@ impl LeafWidget for AboutDialog {
 
 			ui.vertical_centered(|ui| {
 				ui.add_space(12.0);
-				ui.add(
-					Image::from_uri(&self.settings.icon_uri)
-						.fit_to_exact_size(egui::vec2(64.0, 64.0))
-						.maintain_aspect_ratio(true),
-				);
-				ui.add_space(8.0);
-				ui.label(RichText::new(&self.settings.name).size(20.0).strong());
-				ui.label(RichText::new(&self.settings.description).size(13.0).weak());
-				ui.add_space(2.0);
-				ui.label(
-					RichText::new(format!("Version {}", self.settings.version))
-						.size(12.0)
-						.weak(),
-				);
+				if let Some(icon_uri) = &self.icon_uri {
+					ui.add(
+						Image::from_uri(icon_uri)
+							.fit_to_exact_size(egui::vec2(64.0, 64.0))
+							.maintain_aspect_ratio(true),
+					);
+					ui.add_space(8.0);
+				}
+				ui.label(RichText::new(&self.name).size(20.0).strong());
+				if let Some(description) = &self.description {
+					ui.label(RichText::new(description).size(13.0).weak());
+				}
+				if let Some(version) = &self.version {
+					if self.description.is_some() {
+						ui.add_space(2.0);
+					}
+					ui.label(
+						RichText::new(format!("Version {version}"))
+							.size(12.0)
+							.weak(),
+					);
+				}
 				ui.add_space(12.0);
 			});
 
-			ui.separator();
+			let has_details = self.has_details();
+			let has_legal = self.has_legal();
 
-			ui.horizontal(|ui| {
-				ui.selectable_value(&mut self.tab, AboutTab::Details, "Details");
-				ui.selectable_value(&mut self.tab, AboutTab::Legal, "Legal");
-			});
+			if has_details || has_legal {
+				ui.separator();
 
-			ui.separator();
-			ui.add_space(6.0);
+				if has_details && has_legal {
+					ui.horizontal(|ui| {
+						ui.selectable_value(&mut self.tab, AboutTab::Details, "Details");
+						ui.selectable_value(&mut self.tab, AboutTab::Legal, "Legal");
+					});
+					ui.separator();
+				}
 
-			ScrollArea::vertical()
-				.max_height(300.0)
-				.show(ui, |ui| match self.tab {
-					AboutTab::Details => self.details_tab(ui),
-					AboutTab::Legal => self.legal_tab(ui),
+				ui.add_space(6.0);
+				ScrollArea::vertical().max_height(300.0).show(ui, |ui| {
+					if has_details && (!has_legal || self.tab == AboutTab::Details) {
+						self.details(ui);
+					} else {
+						self.legal(ui);
+					}
 				});
+				ui.add_space(8.0);
+			}
 
-			ui.add_space(8.0);
 			ui.separator();
 			ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
 				if ui.button("Close").clicked() {

@@ -1,0 +1,42 @@
+name: Validate crate
+
+on:
+  push:
+    branches: ["master"]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  CARGO_INCREMENTAL: "0"
+  CARGO_TERM_COLOR: always
+
+jobs:
+  validate:
+    runs-on: docker
+    container:
+      image: rust:alpine
+
+    steps:
+      - name: Install system dependencies
+        run: apk add --no-cache git nodejs pkgconf wayland-dev libxkbcommon-dev
+
+      - uses: actions/checkout@v4
+
+      - name: Cache Cargo data
+        uses: actions/cache@v6
+        with:
+          path: |
+            /usr/local/cargo/registry
+            /usr/local/cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Check formatting
+        run: cargo fmt --all --check
+
+      - name: Lint
+        run: cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
+
+      - name: Test
+        run: cargo test --locked --workspace --all-features

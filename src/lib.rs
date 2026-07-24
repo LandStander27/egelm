@@ -36,11 +36,5 @@ pub mod window;
 
 /// Reusable widgets supplied by `egelm`.
 pub mod widgets {
-	pub use crate::window::about_dialog::{AboutDialog, AboutDialogSettings};
-
-	/// Re-exports common `egui` types and all widgets in the parent module.
-	pub mod prelude {
-		pub use super::*;
-		pub use egui::{Align, Color32, Image, Label, Layout, Modal, RichText, ScrollArea, TextEdit, TextStyle, TextWrapMode};
-	}
+	pub use crate::window::about_dialog::AboutDialog;
 }

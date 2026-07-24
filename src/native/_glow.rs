@@ -2,7 +2,6 @@
 
 use super::{Runner, UserEvent};
 use crate::prelude::*;
-use crate::widgets::prelude::*;
 
 use std::ffi::CString;
 use std::num::NonZeroU32;

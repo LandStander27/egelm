@@ -1,7 +1,7 @@
 //! Demonstrates opening the reusable about dialog.
 
 use egelm::prelude::*;
-use egelm::widgets::prelude::*;
+use egelm::widgets::AboutDialog;
 
 #[derive(Debug)]
 enum Message {
@@ -46,19 +46,17 @@ impl RootWidget for ExampleApp {
 #[tokio::main]
 async fn main() {
 	let app = App::new(ExampleApp {
-		about_dialog: AboutDialog::new(AboutDialogSettings {
-			name: "Example app".to_string(),
-			description: "An example for egelm".to_string(),
-			description_long: "This is a longer description for this app".to_string(),
-			developer: "Sam Jones".to_string(),
-			version: env!("CARGO_PKG_VERSION").to_string(),
-			issues_url: "https://codeberg.org/Land/egelm/issues".to_string(),
-			website_url: "https://codeberg.org/Land/egelm".to_string(),
-			icon_uri: "bytes://empty.svg".to_string(),
-			license_text: include_str!("../LICENSE").to_string(),
-			license_name: "MIT License".to_string(),
-			license_year: 2026,
-		}),
+		about_dialog: AboutDialog::new("Example app")
+			.description("An example for egelm")
+			.description_long("This is a longer description for this app")
+			.developer("Sam Jones")
+			.version(env!("CARGO_PKG_VERSION"))
+			.issues_url("https://codeberg.org/Land/egelm/issues")
+			.website_url("https://codeberg.org/Land/egelm")
+			.icon_uri("bytes://empty.svg")
+			.license_text(include_str!("../LICENSE"))
+			.license_name("MIT License")
+			.license_year(2026),
 	});
 
 	app.run(ViewportBuilder::default().with_title("Simple Example"))

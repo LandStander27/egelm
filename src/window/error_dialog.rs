@@ -1,7 +1,6 @@
 //! Internal modal used to present queued application errors.
 
 use crate::prelude::*;
-use crate::widgets::prelude::*;
 
 #[derive(Debug)]
 struct QueuedError {
