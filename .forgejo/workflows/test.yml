@@ -18,7 +18,7 @@ jobs:
 
     steps:
       - name: Install system dependencies
-        run: apk add --no-cache git nodejs pkgconf wayland-dev libxkbcommon-dev
+        run: apk add --no-cache git nodejs pkgconf wayland-dev libxkbcommon-dev && rustup component add rustfmt
 
       - uses: actions/checkout@v4
 
