@@ -1,3 +1,12 @@
+## [0.2.2] - 2026-07-24
+
+- Auto update version in README on release
+- Edit README
+- Update the about_dialog api
+- Make fields in about_dialog optional
+- Remove the need for AboutDialogSettings
+- Create testing workflow
+
 ## [0.2.1] - 2026-07-23
 
 - Ability to change the bg color
