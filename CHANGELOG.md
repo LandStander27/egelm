@@ -1,3 +1,18 @@
+## [0.3.0] - 2026-07-25
+
+- Fix badges in README
+- Fix workflow
+- Add rustfmt.toml file
+- Fix workflow
+- Add android support
+- Add platform-specific features
+- Add android eventloop entry point and native activity exports
+- Handle android suspend and resume events by destroying and recreating the window
+- Replace the global type-erased error channel with a typed per-application channel
+- Create buildable android example
+- Document the currently supported platforms
+- Exclude android member from release
+
 ## [0.2.2] - 2026-07-24
 
 - Auto update version in README on release
