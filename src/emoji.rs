@@ -78,3 +78,28 @@ pub fn emoji(name: impl AsRef<str> + std::fmt::Display) -> Emoji {
 		}
 	}
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn known_shortcode_returns_matching_emoji() {
+		let rocket = emoji("rocket");
+
+		assert_eq!(rocket.to_string(), "🚀");
+		assert_eq!(rocket.as_ref().as_str(), "🚀");
+	}
+
+	#[test]
+	fn unknown_shortcode_uses_no_entry_fallback() {
+		assert_eq!(emoji("not_a_real_shortcode").to_string(), "⛔");
+	}
+
+	#[test]
+	fn emoji_converts_into_string() {
+		let value: String = emoji("wave").into();
+
+		assert_eq!(value, "👋");
+	}
+}

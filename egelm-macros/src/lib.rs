@@ -122,3 +122,26 @@ fn is_managed(ty: &Type) -> bool {
 
 	matches!(&segment.arguments, PathArguments::AngleBracketed(args) if args.args.len() == 1 && matches!(args.args.first(), Some(GenericArgument::Type(_))))
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	fn parse_type(source: &str) -> Type {
+		syn::parse_str(source).unwrap()
+	}
+
+	#[test]
+	fn recognizes_managed_widget_types() {
+		assert!(is_managed(&parse_type("Managed<Child>")));
+		assert!(is_managed(&parse_type("egelm::window::Managed<Child>")));
+	}
+
+	#[test]
+	fn rejects_non_managed_and_malformed_types() {
+		assert!(!is_managed(&parse_type("Child")));
+		assert!(!is_managed(&parse_type("Option<Managed<Child>>")));
+		assert!(!is_managed(&parse_type("Managed<'static>")));
+		assert!(!is_managed(&parse_type("&Managed<Child>")));
+	}
+}

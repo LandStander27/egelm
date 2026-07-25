@@ -1,6 +1,6 @@
 //! Demonstrates a small application for Android.
 
-#![allow(unused)]
+#![cfg_attr(not(target_os = "android"), allow(unused))]
 
 use egelm::prelude::*;
 

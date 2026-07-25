@@ -256,3 +256,67 @@ impl LeafWidget for AboutDialog {
 		});
 	}
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn new_dialog_is_closed_with_no_optional_sections() {
+		let dialog = AboutDialog::new("egelm");
+
+		assert!(!dialog.open);
+		assert_eq!(dialog.name, "egelm");
+		assert_eq!(dialog.tab, AboutTab::Details);
+		assert!(!dialog.has_details());
+		assert!(!dialog.has_legal());
+	}
+
+	#[test]
+	fn builder_methods_populate_all_fields() {
+		let dialog = AboutDialog::new("egelm")
+			.icon_uri("file:///icon.png")
+			.version("1.2.3")
+			.developer("Developer")
+			.website_url("https://example.com")
+			.issues_url("https://example.com/issues")
+			.description("Short")
+			.description_long("Long")
+			.license_year(2026)
+			.license_name("MIT")
+			.license_text("Permission is hereby granted.");
+
+		assert_eq!(dialog.icon_uri.as_deref(), Some("file:///icon.png"));
+		assert_eq!(dialog.version.as_deref(), Some("1.2.3"));
+		assert_eq!(dialog.developer.as_deref(), Some("Developer"));
+		assert_eq!(dialog.website_url.as_deref(), Some("https://example.com"));
+		assert_eq!(dialog.issues_url.as_deref(), Some("https://example.com/issues"));
+		assert_eq!(dialog.description.as_deref(), Some("Short"));
+		assert_eq!(dialog.description_long.as_deref(), Some("Long"));
+		assert_eq!(dialog.license_year, Some(2026));
+		assert_eq!(dialog.license_name.as_deref(), Some("MIT"));
+		assert_eq!(dialog.license_text.as_deref(), Some("Permission is hereby granted."));
+		assert!(dialog.has_details());
+		assert!(dialog.has_legal());
+	}
+
+	#[test]
+	fn open_marks_dialog_for_display() {
+		let mut dialog = AboutDialog::new("egelm");
+
+		dialog.open();
+
+		assert!(dialog.open);
+	}
+
+	#[test]
+	fn detail_and_legal_sections_are_detected_independently() {
+		let details = AboutDialog::new("egelm").developer("Developer");
+		let legal = AboutDialog::new("egelm").license_name("MIT");
+
+		assert!(details.has_details());
+		assert!(!details.has_legal());
+		assert!(!legal.has_details());
+		assert!(legal.has_legal());
+	}
+}

@@ -249,3 +249,47 @@ impl ApplicationHandler<UserEvent> for dyn Runner {
 		self.destroy_window();
 	}
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn default_handle_is_hidden() {
+		assert!(!Handle::default().is_visible());
+	}
+
+	#[test]
+	fn cloned_handles_share_visibility_state() {
+		let handle = Handle::default();
+		let clone = handle.clone();
+
+		handle.visible.store(true, Ordering::Relaxed);
+
+		assert!(clone.is_visible());
+	}
+
+	#[test]
+	fn uninitialized_handle_control_methods_are_no_ops() {
+		let handle = Handle::default();
+
+		handle.request_repaint();
+		handle.exit();
+		#[cfg(not(target_os = "android"))]
+		{
+			handle.show();
+			handle.hide();
+		}
+
+		assert!(!handle.is_visible());
+	}
+
+	#[test]
+	fn renderer_is_copyable_and_debuggable() {
+		let renderer = Renderer::Glow;
+		let copy = renderer;
+
+		assert_eq!(format!("{renderer:?}"), "Glow");
+		assert_eq!(format!("{copy:?}"), "Glow");
+	}
+}

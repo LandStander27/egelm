@@ -29,10 +29,6 @@ pub enum Error {
 	#[error("could not send message over channel: channel disconnected")]
 	SendingOverChannel,
 
-	/// A value of an unexpected type reached the root error channel.
-	#[error("error of unexpected type reached root error channel: {0:?}")]
-	UnknownErrorFromRoot(Box<dyn std::fmt::Debug + Sync + Send + 'static>),
-
 	/// The requested renderer was not enabled at compile time.
 	#[error("the {0} renderer is not enabled")]
 	RendererUnavailable(&'static str),

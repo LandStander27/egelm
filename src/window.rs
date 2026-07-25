@@ -684,3 +684,137 @@ pub fn run_test<F: Fn(&mut egui::Ui)>(func: F) -> Result<(), Error> {
 
 	Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+	use std::sync::{Arc, Mutex};
+
+	use super::*;
+
+	#[derive(Debug)]
+	struct TestWidget {
+		updates: Vec<u32>,
+		ticks: usize,
+		output_on_update: bool,
+		fail_update: bool,
+		fail_tick: bool,
+	}
+
+	impl TickChildren for TestWidget {}
+
+	impl Widget for TestWidget {
+		type Message = u32;
+		type Output = String;
+		type Error = &'static str;
+
+		fn view(&mut self, _ui: &mut egui::Ui, _frame: &mut Frame, _ctx: &Context<Self>) {}
+
+		fn update(&mut self, msg: Self::Message, _handle: &Handle, ctx: &Context<Self>) -> Result<(), Self::Error> {
+			self.updates.push(msg);
+			if self.output_on_update {
+				ctx.output(format!("updated {msg}"));
+			}
+			if self.fail_update {
+				return Err("update failed");
+			}
+			Ok(())
+		}
+
+		fn tick(&mut self, _ctx: &Context<Self>) -> Result<(), Self::Error> {
+			self.ticks += 1;
+			if self.fail_tick {
+				return Err("tick failed");
+			}
+			Ok(())
+		}
+	}
+
+	fn sender<T: Send + 'static>() -> (Sender<T>, crossbeam_channel::Receiver<T>) {
+		let (tx, rx) = crossbeam_channel::unbounded();
+		(Sender::new(move |value| tx.send(value).unwrap()), rx)
+	}
+
+	fn managed(widget: TestWidget) -> (Managed<TestWidget>, crossbeam_channel::Receiver<String>, crossbeam_channel::Receiver<&'static str>) {
+		let (output, output_rx) = sender();
+		let (error, error_rx) = sender();
+		(Managed::new(output, error, &Handle::default(), widget), output_rx, error_rx)
+	}
+
+	fn test_widget() -> TestWidget {
+		TestWidget {
+			updates: Vec::new(),
+			ticks: 0,
+			output_on_update: false,
+			fail_update: false,
+			fail_tick: false,
+		}
+	}
+
+	#[test]
+	fn sender_map_transforms_and_forwards_values() {
+		let values = Arc::new(Mutex::new(Vec::new()));
+		let received = values.clone();
+		let sender = Sender::new(move |value: usize| received.lock().unwrap().push(value));
+		let mapped = sender.map(|value: &str| value.len());
+
+		mapped.emit("egelm");
+
+		assert_eq!(*values.lock().unwrap(), vec![5]);
+	}
+
+	#[test]
+	fn managed_update_drains_messages_in_order_and_ticks_once() {
+		let (mut managed, _output_rx, _error_rx) = managed(test_widget());
+		let input = managed.ctx.input_sender();
+		input.emit(3);
+		input.emit(1);
+		input.emit(4);
+
+		managed.update().unwrap();
+
+		assert_eq!(managed.updates, [3, 1, 4]);
+		assert_eq!(managed.ticks, 1);
+	}
+
+	#[test]
+	fn context_forwards_outputs_and_errors() {
+		let mut widget = test_widget();
+		widget.output_on_update = true;
+		let (mut managed, output_rx, error_rx) = managed(widget);
+		managed.ctx.input_sender().emit(7);
+		managed.ctx.error("reported directly");
+
+		managed.update().unwrap();
+
+		assert_eq!(output_rx.try_recv(), Ok("updated 7".to_owned()));
+		assert_eq!(error_rx.try_recv(), Ok("reported directly"));
+	}
+
+	#[test]
+	fn update_route_error_routes_update_errors_and_continues_to_tick() {
+		let mut widget = test_widget();
+		widget.fail_update = true;
+		let (mut managed, _output_rx, error_rx) = managed(widget);
+		let input = managed.ctx.input_sender();
+		input.emit(10);
+		input.emit(20);
+
+		managed.update_route_error();
+
+		assert_eq!(managed.updates, [10, 20]);
+		assert_eq!(managed.ticks, 1);
+		assert_eq!(error_rx.try_iter().collect::<Vec<_>>(), ["update failed", "update failed"]);
+	}
+
+	#[test]
+	fn update_route_error_routes_tick_errors() {
+		let mut widget = test_widget();
+		widget.fail_tick = true;
+		let (mut managed, _output_rx, error_rx) = managed(widget);
+
+		managed.update_route_error();
+
+		assert_eq!(managed.ticks, 1);
+		assert_eq!(error_rx.try_recv(), Ok("tick failed"));
+	}
+}

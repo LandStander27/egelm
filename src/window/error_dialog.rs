@@ -123,3 +123,22 @@ impl LeafWidget for ErrorDialog {
 		});
 	}
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn emit_queues_errors_in_fifo_order() {
+		let mut dialog = ErrorDialog::default();
+
+		dialog.emit("first".to_owned(), Some("details".to_owned()));
+		dialog.emit("second".to_owned(), None);
+
+		assert_eq!(dialog.errors.len(), 2);
+		assert_eq!(dialog.errors[0].summary, "first");
+		assert_eq!(dialog.errors[0].details.as_deref(), Some("details"));
+		assert_eq!(dialog.errors[1].summary, "second");
+		assert!(dialog.errors[1].details.is_none());
+	}
+}
