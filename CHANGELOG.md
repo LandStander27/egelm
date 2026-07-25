@@ -1,3 +1,8 @@
+## [0.3.2] - 2026-07-25
+
+- Add more examples
+- Add more logging
+
 ## [0.3.1] - 2026-07-25
 
 - Remove common commits from changelog
