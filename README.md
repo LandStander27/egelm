@@ -38,18 +38,18 @@ Add `egelm` and Tokio to your application:
 
 ```toml
 [dependencies]
-egelm = "0.3.1"
+egelm = { version = "0.3.1", features = ["wayland", "wgpu"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 ```
 
 Or via `cargo add`:
 
 ```sh
-cargo add egelm tokio --features 'tokio/rt-multi-thread tokio/macros'
+cargo add egelm tokio --features 'egelm/wayland egelm/wgpu tokio/rt-multi-thread tokio/macros'
 ```
 
-The default `egelm` features enable Ctrl-C handling, tracing, a quick
-emoji lookup, and `wgpu` rendering.
+The default `egelm` features enable Ctrl-C handling and a quick
+emoji lookup. All platforms and renderers are disabled by default, and can be enabled via feature flags.
 
 ## Quick start
 
