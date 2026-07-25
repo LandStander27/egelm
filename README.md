@@ -18,6 +18,7 @@ example, see [`examples/android`](examples/android).
 - [Features](#features)
 - [Installation](#installation)
 - [Quick start](#quick-start)
+- [Examples](#examples)
 - [How it works](#how-it-works)
 - [AI usage](#ai-usage)
 - [License](#license)
