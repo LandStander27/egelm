@@ -4,6 +4,9 @@ version = "0.0.0"
 edition = "2024"
 publish = false
 
+[package.metadata.release]
+release = false
+
 [package.metadata.android]
 package = "com.example.egelm"
 build_targets = ["aarch64-linux-android"]
