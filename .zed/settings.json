@@ -1,0 +1,24 @@
+{
+	"lsp": {
+		"rust-analyzer": {
+			"initialization_options": {
+				"cargo": {
+					"features": ["default", "wayland", "wgpu", "glow"],
+				},
+
+				// "cargo": {
+				// 	"features": ["default", "android"],
+				// 	"target": "aarch64-linux-android",
+				// 	"extraEnv": {
+				// 		"ANDROID_NDK_HOME": "/opt/android-ndk",
+				// 		"ANDROID_NDK_ROOT": "/opt/android-ndk",
+				// 		"CC_aarch64_linux_android": "/opt/android-ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang",
+				// 		"CXX_aarch64_linux_android": "/opt/android-ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++",
+				// 		"AR_aarch64_linux_android": "/opt/android-ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar",
+				// 		"CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER": "/opt/android-ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang",
+				// 	},
+				// },
+			},
+		},
+	},
+}

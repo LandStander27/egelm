@@ -1,0 +1,25 @@
+[package]
+name = "android"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata.android]
+package = "com.example.egelm"
+build_targets = ["aarch64-linux-android"]
+resources = "res"
+
+[package.metadata.android.sdk]
+min_sdk_version = 26
+target_sdk_version = 35
+
+[package.metadata.android.application]
+label = "egelm example"
+theme = "@style/AppTheme"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+egelm = { path = "../../../egelm", features = ["android"] }
+tokio = { version = "1.53.1", features = ["rt", "macros", "rt-multi-thread"] }

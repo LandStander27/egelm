@@ -145,10 +145,11 @@ pub(crate) struct GlowRunner<T: RootWidget> {
 	surfaced: Option<Surfaced>,
 	error_dialog: crate::window::error_dialog::ErrorDialog,
 	handle: Handle,
+	error_rx: crossbeam_channel::Receiver<T::Error>,
 }
 
 impl<T: RootWidget> GlowRunner<T> {
-	pub(crate) fn new(root: Managed<T>, options: ViewportBuilder, proxy: EventLoopProxy<UserEvent>) -> Self {
+	pub(crate) fn new(root: Managed<T>, error_rx: crossbeam_channel::Receiver<T::Error>, options: ViewportBuilder, proxy: EventLoopProxy<UserEvent>) -> Self {
 		Self {
 			handle: root.handle.clone(),
 			root,
@@ -157,6 +158,7 @@ impl<T: RootWidget> GlowRunner<T> {
 			surfaced: None,
 			egui_ctx: egui::Context::default(),
 			error_dialog: crate::window::error_dialog::ErrorDialog::default(),
+			error_rx,
 		}
 	}
 
@@ -167,18 +169,9 @@ impl<T: RootWidget> GlowRunner<T> {
 
 		let window = surfaced.gl_window.window();
 		surfaced.egui_glow.run(window, |ui| {
-			let rx = crate::window::ERROR_RX
-				.get()
-				.expect("ERROR_TX not inited; was App::new called?");
-			let lock = rx.lock().expect("app crashed");
-			while let Ok(e) = lock.try_recv() {
-				match e.as_any().downcast_ref::<T::Error>() {
-					Some(err) => {
-						let (summary, details) = self.root.error(err);
-						self.error_dialog.emit(summary, details);
-					}
-					None => tracing::error!("{}", Error::UnknownErrorFromRoot(e)),
-				}
+			while let Ok(e) = self.error_rx.try_recv() {
+				let (summary, details) = self.root.error(&e);
+				self.error_dialog.emit(summary, details);
 			}
 
 			self.root.render(ui, &mut surfaced.frame);
@@ -235,10 +228,6 @@ impl<T: RootWidget> GlowRunner<T> {
 }
 
 impl<T: RootWidget> Runner for GlowRunner<T> {
-	fn is_visible(&self) -> bool {
-		self.viewport_builder.visible.unwrap_or(true)
-	}
-
 	fn has_window(&self) -> bool {
 		self.surfaced.is_some()
 	}
@@ -288,7 +277,7 @@ impl<T: RootWidget> Runner for GlowRunner<T> {
 		if let Some(mut surfaced) = self.surfaced.take() {
 			surfaced.egui_glow.destroy();
 		}
-		self.handle.visible.store(true, Ordering::Relaxed);
+		self.handle.visible.store(false, Ordering::Relaxed);
 	}
 
 	fn update(&mut self) {
@@ -324,8 +313,13 @@ impl<T: RootWidget> Runner for GlowRunner<T> {
 			return;
 		}
 
-		if matches!(event, WindowEvent::CloseRequested | WindowEvent::Destroyed) {
+		if matches!(event, WindowEvent::CloseRequested) {
 			self.root.close(&mut surfaced.frame);
+			return;
+		}
+
+		if matches!(event, WindowEvent::Destroyed) {
+			self.destroy_window();
 			return;
 		}
 

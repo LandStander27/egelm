@@ -29,10 +29,11 @@ pub(crate) struct WgpuRunner<T: RootWidget> {
 	surfaced: Option<Surfaced>,
 	error_dialog: crate::window::error_dialog::ErrorDialog,
 	handle: Handle,
+	error_rx: crossbeam_channel::Receiver<T::Error>,
 }
 
 impl<T: RootWidget> WgpuRunner<T> {
-	pub(crate) fn new(root: Managed<T>, options: ViewportBuilder, proxy: EventLoopProxy<UserEvent>) -> Self {
+	pub(crate) fn new(root: Managed<T>, error_rx: crossbeam_channel::Receiver<T::Error>, options: ViewportBuilder, proxy: EventLoopProxy<UserEvent>) -> Self {
 		Self {
 			handle: root.handle.clone(),
 			root,
@@ -42,6 +43,7 @@ impl<T: RootWidget> WgpuRunner<T> {
 			surfaced: None,
 			egui_ctx: egui::Context::default(),
 			error_dialog: crate::window::error_dialog::ErrorDialog::default(),
+			error_rx,
 		}
 	}
 
@@ -52,18 +54,9 @@ impl<T: RootWidget> WgpuRunner<T> {
 
 		let raw_input = surfaced.egui_winit.take_egui_input(&surfaced.window);
 		let output = self.egui_ctx.run_ui(raw_input, |ui| {
-			let rx = crate::window::ERROR_RX
-				.get()
-				.expect("ERROR_TX not inited; was App::new called?");
-			let lock = rx.lock().expect("app crashed");
-			while let Ok(e) = lock.try_recv() {
-				match e.as_any().downcast_ref::<T::Error>() {
-					Some(err) => {
-						let (summary, details) = self.root.error(err);
-						self.error_dialog.emit(summary, details);
-					}
-					None => tracing::error!("{}", Error::UnknownErrorFromRoot(e)),
-				}
+			while let Ok(e) = self.error_rx.try_recv() {
+				let (summary, details) = self.root.error(&e);
+				self.error_dialog.emit(summary, details);
 			}
 
 			self.root.render(ui, &mut surfaced.frame);
@@ -130,10 +123,6 @@ impl<T: RootWidget> WgpuRunner<T> {
 }
 
 impl<T: RootWidget> Runner for WgpuRunner<T> {
-	fn is_visible(&self) -> bool {
-		self.viewport_builder.visible.unwrap_or(true)
-	}
-
 	fn has_window(&self) -> bool {
 		self.surfaced.is_some()
 	}
@@ -236,8 +225,12 @@ impl<T: RootWidget> Runner for WgpuRunner<T> {
 		if surfaced.window.id() != window_id {
 			return;
 		}
-		if matches!(event, WindowEvent::CloseRequested | WindowEvent::Destroyed) {
+		if matches!(event, WindowEvent::CloseRequested) {
 			self.root.close(&mut surfaced.frame);
+			return;
+		}
+		if matches!(event, WindowEvent::Destroyed) {
+			self.destroy_window();
 			return;
 		}
 		if matches!(event, WindowEvent::RedrawRequested) {

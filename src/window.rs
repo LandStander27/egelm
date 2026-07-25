@@ -24,8 +24,7 @@
 //! }
 //! ```
 
-use std::any::Any;
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::Arc;
 
 use egui_winit::winit::event_loop::EventLoop;
 
@@ -34,19 +33,6 @@ use crate::prelude::*;
 /// A reusable modal dialog containing application and license information.
 pub mod about_dialog;
 pub(crate) mod error_dialog;
-
-pub(crate) static ERROR_TX: OnceLock<crossbeam_channel::Sender<Box<dyn AnyDebug + Send + Sync>>> = OnceLock::new();
-pub(crate) static ERROR_RX: OnceLock<Mutex<crossbeam_channel::Receiver<Box<dyn AnyDebug + Send + Sync>>>> = OnceLock::new();
-
-pub(crate) trait AnyDebug: std::fmt::Debug + Any {
-	fn as_any(&self) -> &dyn Any;
-}
-
-impl<T: std::fmt::Debug + Any> AnyDebug for T {
-	fn as_any(&self) -> &dyn Any {
-		self
-	}
-}
 
 /// A cloneable callback for delivering typed widget messages.
 ///
@@ -474,6 +460,7 @@ pub trait TickChildren {
 pub struct App<T: RootWidget> {
 	root: Managed<T>,
 	ctrlc_handler: bool,
+	error_rx: crossbeam_channel::Receiver<T::Error>,
 }
 
 impl<T: RootWidget> App<T> {
@@ -526,33 +513,28 @@ impl<T: RootWidget> App<T> {
 	/// Panics if another `App` has already been constructed in this process.
 	/// `egelm` currently maintains one global root-error channel.
 	pub fn new_factory<F: FnOnce(&Context<T>, &Handle) -> T>(factory: F) -> Self {
-		let (tx, rx) = crossbeam_channel::unbounded();
-		crate::window::ERROR_RX
-			.set(std::sync::Mutex::new(rx))
-			.expect("cannot call App::new twice");
-		crate::window::ERROR_TX
-			.set(tx)
-			.expect("cannot call App::new twice");
+		let (error_tx, error_rx) = crossbeam_channel::unbounded::<T::Error>();
 
 		let handle = Handle::new();
-		let wake = handle.clone();
 		let (tx, rx) = crossbeam_channel::unbounded();
 		let ctx = Context {
-			input: Sender::new(move |msg| {
-				if let Err(e) = tx.send(msg).map_err(|_| Error::SendingOverChannel) {
-					tracing::error!("{e}");
+			input: Sender::new({
+				let handle = handle.clone();
+				move |msg| {
+					if let Err(e) = tx.send(msg).map_err(|_| Error::SendingOverChannel) {
+						tracing::error!("{e}");
+					}
+					handle.request_repaint();
 				}
-				wake.request_repaint();
 			}),
 			output: None,
-			error: Sender::new(move |err| {
-				if let Err(e) = super::window::ERROR_TX
-					.get()
-					.expect("ERROR_TX not inited; was App::new called?")
-					.send(Box::new(err) as Box<dyn crate::window::AnyDebug + Send + Sync + 'static>)
-					.map_err(|_| Error::SendingOverChannel)
-				{
-					tracing::error!("{e}");
+			error: Sender::new({
+				let handle = handle.clone();
+				move |err| {
+					if let Err(e) = error_tx.send(err).map_err(|_| Error::SendingOverChannel) {
+						tracing::error!("{e}");
+					}
+					handle.request_repaint();
 				}
 			}),
 		};
@@ -565,6 +547,7 @@ impl<T: RootWidget> App<T> {
 				handle,
 			},
 			ctrlc_handler: true,
+			error_rx,
 		}
 	}
 
@@ -574,6 +557,22 @@ impl<T: RootWidget> App<T> {
 	pub fn without_ctrl_handler(mut self) -> Self {
 		self.ctrlc_handler = false;
 		self
+	}
+
+	/// Runs the native application event loop on Android with `wgpu` backend.
+	///
+	/// For more information, see [`App::run`](Self::run).
+	#[cfg(all(feature = "android", target_os = "android"))]
+	#[tracing::instrument(skip(self, options))]
+	pub fn run_android(self, android_app: AndroidApp, options: ViewportBuilder) -> Result<(), Error> {
+		use egui_winit::winit::platform::android::EventLoopBuilderExtAndroid;
+
+		let event_loop = EventLoop::<crate::native::UserEvent>::with_user_event()
+			.with_android_app(android_app)
+			.build()
+			.map_err(Error::EventLoopBuildFail)?;
+
+		self.run_with_event_loop(event_loop, crate::native::Renderer::Wgpu, options)
 	}
 
 	/// Runs the native application event loop with the default rendering backend
@@ -627,6 +626,11 @@ impl<T: RootWidget> App<T> {
 		let event_loop = EventLoop::<crate::native::UserEvent>::with_user_event()
 			.build()
 			.map_err(Error::EventLoopBuildFail)?;
+		self.run_with_event_loop(event_loop, renderer, options)
+	}
+
+	#[tracing::instrument(skip(self, event_loop, options))]
+	fn run_with_event_loop(self, event_loop: EventLoop<crate::native::UserEvent>, renderer: crate::native::Renderer, options: ViewportBuilder) -> Result<(), Error> {
 		let proxy = event_loop.create_proxy();
 		self.root.handle.init(proxy.clone());
 
@@ -634,12 +638,12 @@ impl<T: RootWidget> App<T> {
 			#[cfg(feature = "glow")]
 			crate::native::Renderer::Glow => {
 				tracing::info!("using glow renderer");
-				Box::new(crate::native::_glow::GlowRunner::new(self.root, options, proxy.clone()))
+				Box::new(crate::native::_glow::GlowRunner::new(self.root, self.error_rx, options, proxy.clone()))
 			}
 			#[cfg(feature = "wgpu")]
 			crate::native::Renderer::Wgpu => {
 				tracing::info!("using wgpu renderer");
-				Box::new(crate::native::_wgpu::WgpuRunner::new(self.root, options, proxy.clone()))
+				Box::new(crate::native::_wgpu::WgpuRunner::new(self.root, self.error_rx, options, proxy.clone()))
 			}
 			#[cfg(not(feature = "glow"))]
 			crate::native::Renderer::Glow => return Err(Error::RendererUnavailable("glow")),
@@ -647,7 +651,7 @@ impl<T: RootWidget> App<T> {
 			crate::native::Renderer::Wgpu => return Err(Error::RendererUnavailable("wgpu")),
 		};
 
-		#[cfg(feature = "ctrlc")]
+		#[cfg(all(feature = "ctrlc", not(target_os = "android")))]
 		if self.ctrlc_handler {
 			ctrlc::set_handler(move || {
 				println!();

@@ -10,6 +10,9 @@ in Rust with [`egui`](https://github.com/emilk/egui). It adds a typed,
 message-driven widget lifecycle, child-widget management, asynchronous tasks,
 error routing, and reusable dialogs on top of `egui`.
 
+Currently, `egelm` supports Linux, Android, and Windows only. For an Android
+example, see [`examples/android`](examples/android).
+
 ## Table of contents
 
 - [Features](#features)

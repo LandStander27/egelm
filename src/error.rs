@@ -37,7 +37,7 @@ pub enum Error {
 	#[error("the {0} renderer is not enabled")]
 	RendererUnavailable(&'static str),
 
-	#[cfg(feature = "ctrlc")]
+	#[cfg(all(feature = "ctrlc", not(target_os = "android")))]
 	/// The process Ctrl-C handler could not be installed.
 	#[error("could not set ctrlc handler: {0}")]
 	SetSigHandler(#[source] ctrlc::Error),

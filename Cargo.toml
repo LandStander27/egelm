@@ -21,7 +21,7 @@ pre-release-replacements = [
 
 [workspace]
 resolver = "3"
-members = ["egelm-macros"]
+members = ["egelm-macros", "examples/android"]
 
 [workspace.metadata.release]
 allow-branch = ["master"]
@@ -40,7 +40,7 @@ shared-version = true
 [workspace.package]
 version = "0.2.2"
 edition = "2024"
-description = "A simple Elm-like framework for building GUI applications in Rust using egui."
+description = "A simple message-driven framework for building GUI applications in Rust using egui."
 license = "MIT"
 repository = "https://codeberg.org/Land/egelm"
 
@@ -51,36 +51,52 @@ missing_docs = "warn"
 tabs_in_doc_comments = "allow"
 
 [features]
-default = ["ctrlc", "tracing", "emoji", "wgpu"]
+default = ["ctrlc", "emoji"]
 ctrlc = ["dep:ctrlc"]
-tracing = ["dep:tracing"]
 emoji = ["dep:emojis"]
 glow = ["dep:egui_glow", "dep:glutin", "dep:glutin-winit"]
 wgpu = ["dep:egui-wgpu", "dep:pollster"]
+wayland = [
+	"egui_glow?/wayland",
+	"egui-wgpu?/wayland",
+	"egui-winit/wayland",
+	"glutin?/wayland",
+	"glutin-winit?/wayland",
+	"glutin?/egl",
+	"glutin-winit?/egl",
+]
+x11 = [
+	"egui-winit/x11",
+	"glutin-winit?/x11",
+	"glutin?/x11",
+	"glutin?/glx",
+	"glutin-winit?/glx",
+]
+android = ["egui-winit/android-native-activity", "wgpu"]
+windows = ["glutin?/wgl", "glutin-winit?/wgl"]
 
 [dependencies]
 egelm-macros = { version = "=0.2.2", path = "./egelm-macros" }
 
-ctrlc = { version = "3.5.2", optional = true }
-tracing = { version = "0.1.44", optional = true }
+tracing = "0.1.44"
 emojis = { version = "0.9.0", optional = true }
 
 egui = "0.35.0"
-egui_glow = { version = "0.35.0", features = [
-	"winit",
-	"wayland",
-], optional = true }
-egui-wgpu = { version = "0.35.0", features = [
-	"winit",
-	"wayland",
-], optional = true }
-egui-winit = { version = "0.35.0", features = ["wayland"] }
-glutin = { version = "0.32.3", features = ["wayland"], optional = true }
-glutin-winit = { version = "0.5.0", features = ["wayland"], optional = true }
+egui-wgpu = { version = "0.35.0", features = ["winit"], optional = true }
+egui-winit = { version = "0.35.0", default-features = false, features = [
+	"clipboard",
+	"links",
+] }
 pollster = { version = "0.4.0", optional = true }
 tokio = { version = "1.53.1", features = ["rt"] }
 crossbeam-channel = "0.5.16"
 thiserror = "2.0.19"
+
+[target.'cfg(not(target_os = "android"))'.dependencies]
+ctrlc = { version = "3.5.2", optional = true }
+egui_glow = { version = "0.35.0", features = ["winit"], optional = true }
+glutin = { version = "0.32.3", default-features = false, optional = true }
+glutin-winit = { version = "0.5.0", default-features = false, optional = true }
 
 [dev-dependencies]
 tokio = { version = "1.53.1", features = [

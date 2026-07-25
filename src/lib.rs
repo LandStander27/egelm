@@ -22,6 +22,15 @@
 #[cfg(not(any(feature = "glow", feature = "wgpu")))]
 compile_error!("enable either the `glow` or `wgpu` renderer feature");
 
+#[cfg(all(target_os = "android", not(feature = "android")))]
+compile_error!("android targets require the `android` feature");
+
+#[cfg(all(target_os = "android", any(feature = "wayland", feature = "x11")))]
+compile_error!("wayland and x11 are not valid Android display backends");
+
+#[cfg(all(target_os = "linux", not(target_os = "android"), not(any(feature = "wayland", feature = "x11"))))]
+compile_error!("linux builds require `wayland` or `x11`");
+
 /// Emoji lookup and display types.
 #[cfg(feature = "emoji")]
 pub mod emoji;

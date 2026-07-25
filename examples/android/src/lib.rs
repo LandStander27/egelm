@@ -1,4 +1,6 @@
-//! Demonstrates a small application composed from managed widgets.
+//! Demonstrates a small application for Android.
+
+#![allow(unused)]
 
 use egelm::prelude::*;
 
@@ -79,13 +81,31 @@ impl Widget for ExampleApp {
 
 impl RootWidget for ExampleApp {}
 
-#[tokio::main] // This is needed for calling Context::spawn
-async fn main() {
+#[cfg(target_os = "android")]
+#[unsafe(no_mangle)]
+fn android_main(android_app: AndroidApp) {
+	android_app.set_window_flags(
+		WindowManagerFlags::FORCE_NOT_FULLSCREEN,
+		WindowManagerFlags::FULLSCREEN | WindowManagerFlags::LAYOUT_IN_SCREEN | WindowManagerFlags::LAYOUT_NO_LIMITS,
+	);
+
+	let runtime = tokio::runtime::Builder::new_multi_thread()
+		.enable_all()
+		.build()
+		.unwrap();
+
+	let _guard = runtime.enter(); // Needed for calling Context::spawn
+
 	let app = App::new_factory(|ctx, handle| ExampleApp {
 		input: None,
 		input_dialog: Managed::new(ctx.input_sender().map(Message::Confirmed), ctx.error_sender(), handle, InputDialog::default()),
 	});
 
-	app.run(ViewportBuilder::default().with_title("Simple Example"))
+	app.run_android(android_app, ViewportBuilder::default().with_title("Simple Example"))
 		.unwrap();
+}
+
+#[cfg(all(target_os = "linux", not(target_os = "android")))]
+fn main() {
+	panic!("This example is only for Android. Please run it on an Android device or emulator.");
 }

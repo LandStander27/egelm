@@ -157,7 +157,8 @@ impl Handle {
 	/// Hides and destroys the native window while keeping the event loop alive.
 	///
 	/// Calling [`show`](Self::show) later creates a new native window. Before
-	/// event-loop initialization, this only records the handle as hidden.
+	/// event-loop initialization, this does nothing.
+	#[cfg(not(target_os = "android"))]
 	pub fn hide(&self) {
 		if let Some(proxy) = self.proxy.get() {
 			_ = proxy.send_event(UserEvent::Hide);
@@ -168,7 +169,8 @@ impl Handle {
 	/// Shows the application window.
 	///
 	/// If the window was destroyed by [`hide`](Self::hide), it is recreated.
-	/// Before event-loop initialization, this only records the handle as visible.
+	/// Before event-loop initialization, this does nothing.
+	#[cfg(not(target_os = "android"))]
 	pub fn show(&self) {
 		if let Some(proxy) = self.proxy.get() {
 			_ = proxy.send_event(UserEvent::Show);
@@ -191,6 +193,7 @@ impl Handle {
 	}
 }
 
+#[allow(unused)]
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum UserEvent {
 	Show,
@@ -202,7 +205,6 @@ pub(crate) enum UserEvent {
 
 /// Renderer-independent application lifecycle used by the native backends.
 pub(crate) trait Runner {
-	fn is_visible(&self) -> bool;
 	fn has_window(&self) -> bool;
 	fn ensure_window(&mut self, event_loop: &ActiveEventLoop);
 	fn destroy_window(&mut self);
@@ -212,11 +214,15 @@ pub(crate) trait Runner {
 	fn window_event(&mut self, event_loop: &ActiveEventLoop, window_id: winit::window::WindowId, event: WindowEvent);
 }
 
-impl ApplicationHandler<UserEvent> for dyn Runner + '_ {
+impl ApplicationHandler<UserEvent> for dyn Runner {
 	fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-		if self.is_visible() && !self.has_window() {
+		if !self.has_window() {
 			self.ensure_window(event_loop);
 		}
+	}
+
+	fn suspended(&mut self, _event_loop: &ActiveEventLoop) {
+		self.destroy_window();
 	}
 
 	fn new_events(&mut self, _event_loop: &ActiveEventLoop, cause: StartCause) {
