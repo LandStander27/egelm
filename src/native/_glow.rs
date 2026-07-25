@@ -232,10 +232,13 @@ impl<T: RootWidget> Runner for GlowRunner<T> {
 		self.surfaced.is_some()
 	}
 
+	#[tracing::instrument(skip(self, event_loop))]
 	fn ensure_window(&mut self, event_loop: &ActiveEventLoop) {
 		if self.surfaced.is_some() {
+			tracing::trace!("glow window already exists");
 			return;
 		}
+		tracing::info!("creating glow window and rendering context");
 
 		let gl_window = unsafe { GlutinWindowContext::new(&self.egui_ctx, event_loop, &self.viewport_builder) };
 
@@ -271,19 +274,22 @@ impl<T: RootWidget> Runner for GlowRunner<T> {
 			repaint_delay: Duration::MAX,
 		});
 		self.handle.visible.store(true, Ordering::Relaxed);
+		tracing::info!(window_id = ?self.surfaced.as_ref().map(|surface| surface.gl_window.window().id()), "glow window ready");
 	}
 
 	fn destroy_window(&mut self) {
 		if let Some(mut surfaced) = self.surfaced.take() {
+			tracing::info!(window_id = ?surfaced.gl_window.window().id(), "destroying glow window");
 			surfaced.egui_glow.destroy();
 		}
 		self.handle.visible.store(false, Ordering::Relaxed);
 	}
 
 	fn update(&mut self) {
-		let span = tracing::span!(tracing::Level::INFO, "app_tick");
+		let span = tracing::span!(tracing::Level::TRACE, "app_tick", backend = "glow");
 		let _enter = span.enter();
 		if let Err(e) = self.root.update() {
+			tracing::error!(error = ?e, "root widget update failed");
 			let (summary, details) = self.root.error(&e);
 			self.error_dialog.emit(summary, details);
 		}

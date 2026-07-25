@@ -82,7 +82,7 @@ impl<T: RootWidget> WgpuRunner<T> {
 			let mut actions_requested = Default::default();
 			egui_winit::process_viewport_commands(&self.egui_ctx, &mut surfaced.viewport_info, commands, &surfaced.window, &mut actions_requested);
 			for action in actions_requested {
-				tracing::warn!("{action:?} is not supported by the wgpu backend");
+				tracing::warn!(?action, "viewport action is not supported by the wgpu backend");
 			}
 		}
 		surfaced
@@ -127,10 +127,13 @@ impl<T: RootWidget> Runner for WgpuRunner<T> {
 		self.surfaced.is_some()
 	}
 
+	#[tracing::instrument(skip(self, event_loop))]
 	fn ensure_window(&mut self, event_loop: &ActiveEventLoop) {
 		if self.surfaced.is_some() {
+			tracing::trace!("wgpu window already exists");
 			return;
 		}
+		tracing::info!("creating wgpu window and rendering surface");
 
 		let attributes = egui_winit::create_winit_window_attributes(&self.egui_ctx, self.viewport_builder.clone());
 		let window = Arc::new(
@@ -183,9 +186,13 @@ impl<T: RootWidget> Runner for WgpuRunner<T> {
 			repaint_delay: Duration::MAX,
 		});
 		self.handle.visible.store(true, Ordering::Relaxed);
+		tracing::info!(window_id = ?self.surfaced.as_ref().map(|surface| surface.window.id()), "wgpu window ready");
 	}
 
 	fn destroy_window(&mut self) {
+		if let Some(surfaced) = &self.surfaced {
+			tracing::info!(window_id = ?surfaced.window.id(), "destroying wgpu window");
+		}
 		if self.surfaced.take().is_some()
 			&& let Some(painter) = &mut self.painter
 		{
@@ -195,9 +202,10 @@ impl<T: RootWidget> Runner for WgpuRunner<T> {
 	}
 
 	fn update(&mut self) {
-		let span = tracing::span!(tracing::Level::INFO, "app_tick");
+		let span = tracing::span!(tracing::Level::TRACE, "app_tick", backend = "wgpu");
 		let _enter = span.enter();
 		if let Err(e) = self.root.update() {
+			tracing::error!(error = ?e, "root widget update failed");
 			let (summary, details) = self.root.error(&e);
 			self.error_dialog.emit(summary, details);
 		}

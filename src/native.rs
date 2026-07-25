@@ -143,6 +143,7 @@ impl Handle {
 
 	pub(crate) fn init(&self, proxy: EventLoopProxy<UserEvent>) {
 		self.proxy.set(proxy).unwrap();
+		tracing::debug!("application handle initialized");
 	}
 
 	/// Requests that the application process pending messages and repaint.
@@ -216,12 +217,14 @@ pub(crate) trait Runner {
 
 impl ApplicationHandler<UserEvent> for dyn Runner {
 	fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+		tracing::info!("application resumed");
 		if !self.has_window() {
 			self.ensure_window(event_loop);
 		}
 	}
 
 	fn suspended(&mut self, _event_loop: &ActiveEventLoop) {
+		tracing::info!("application suspended");
 		self.destroy_window();
 	}
 
@@ -232,6 +235,7 @@ impl ApplicationHandler<UserEvent> for dyn Runner {
 	}
 
 	fn user_event(&mut self, event_loop: &ActiveEventLoop, event: UserEvent) {
+		tracing::trace!(?event, "processing user event");
 		match event {
 			UserEvent::Show => self.ensure_window(event_loop),
 			UserEvent::Hide => self.destroy_window(),
@@ -246,6 +250,7 @@ impl ApplicationHandler<UserEvent> for dyn Runner {
 	}
 
 	fn exiting(&mut self, _event_loop: &ActiveEventLoop) {
+		tracing::info!("application event loop exiting");
 		self.destroy_window();
 	}
 }

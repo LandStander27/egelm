@@ -133,7 +133,7 @@ impl<W: Widget + 'static> Context<W> {
 		if let Some(output) = &self.output {
 			output.emit(msg);
 		} else {
-			tracing::warn!("`output` channel does not exist");
+			tracing::warn!(widget = std::any::type_name::<W>(), "discarding widget output because no output channel is configured");
 		}
 	}
 
@@ -353,7 +353,7 @@ impl<T: Widget + 'static> Managed<T> {
 			ctx: Context {
 				input: Sender::new(move |msg| {
 					if let Err(e) = tx.send(msg).map_err(|_| Error::SendingOverChannel) {
-						tracing::error!("{e}");
+						tracing::warn!(widget = std::any::type_name::<T>(), error = %e, "could not enqueue widget message");
 					}
 					wake.request_repaint();
 				}),
@@ -402,12 +402,14 @@ impl<T: Widget + 'static> Managed<T> {
 	pub fn update_route_error(&mut self) {
 		while let Ok(msg) = self.rx.try_recv() {
 			if let Err(e) = self.widget.update(msg, &self.handle, &self.ctx) {
+				tracing::error!(widget = std::any::type_name::<T>(), error = ?e, "widget update failed");
 				self.ctx.error(e);
 			}
 		}
 
 		self.widget.tick_children_auto();
 		if let Err(e) = self.widget.tick(&self.ctx) {
+			tracing::error!(widget = std::any::type_name::<T>(), error = ?e, "widget tick failed");
 			self.ctx.error(e);
 		}
 	}
@@ -522,7 +524,7 @@ impl<T: RootWidget> App<T> {
 				let handle = handle.clone();
 				move |msg| {
 					if let Err(e) = tx.send(msg).map_err(|_| Error::SendingOverChannel) {
-						tracing::error!("{e}");
+						tracing::warn!(widget = std::any::type_name::<T>(), error = %e, "could not enqueue root widget message");
 					}
 					handle.request_repaint();
 				}
@@ -532,7 +534,7 @@ impl<T: RootWidget> App<T> {
 				let handle = handle.clone();
 				move |err| {
 					if let Err(e) = error_tx.send(err).map_err(|_| Error::SendingOverChannel) {
-						tracing::error!("{e}");
+						tracing::warn!(widget = std::any::type_name::<T>(), error = %e, "could not enqueue root widget error");
 					}
 					handle.request_repaint();
 				}
@@ -621,7 +623,7 @@ impl<T: RootWidget> App<T> {
 	}
 
 	/// Exactly the same as [`App::run`](Self::run) but allows the caller to select a specific rendering backend.
-	#[tracing::instrument(skip(self, options))]
+	#[tracing::instrument(skip(self, renderer, options))]
 	pub fn run_with_backend(self, renderer: crate::native::Renderer, options: ViewportBuilder) -> Result<(), Error> {
 		let event_loop = EventLoop::<crate::native::UserEvent>::with_user_event()
 			.build()
@@ -629,20 +631,21 @@ impl<T: RootWidget> App<T> {
 		self.run_with_event_loop(event_loop, renderer, options)
 	}
 
-	#[tracing::instrument(skip(self, event_loop, options))]
+	#[tracing::instrument(skip(self, renderer, event_loop, options))]
 	fn run_with_event_loop(self, event_loop: EventLoop<crate::native::UserEvent>, renderer: crate::native::Renderer, options: ViewportBuilder) -> Result<(), Error> {
 		let proxy = event_loop.create_proxy();
 		self.root.handle.init(proxy.clone());
 
+		tracing::info!(?renderer, "starting application event loop");
 		let mut runner: Box<dyn crate::native::Runner> = match renderer {
 			#[cfg(feature = "glow")]
 			crate::native::Renderer::Glow => {
-				tracing::info!("using glow renderer");
+				tracing::debug!("initializing glow renderer");
 				Box::new(crate::native::_glow::GlowRunner::new(self.root, self.error_rx, options, proxy.clone()))
 			}
 			#[cfg(feature = "wgpu")]
 			crate::native::Renderer::Wgpu => {
-				tracing::info!("using wgpu renderer");
+				tracing::debug!("initializing wgpu renderer");
 				Box::new(crate::native::_wgpu::WgpuRunner::new(self.root, self.error_rx, options, proxy.clone()))
 			}
 			#[cfg(not(feature = "glow"))]
@@ -653,13 +656,14 @@ impl<T: RootWidget> App<T> {
 
 		#[cfg(all(feature = "ctrlc", not(target_os = "android")))]
 		if self.ctrlc_handler {
+			tracing::debug!("installing sigint handler");
 			ctrlc::set_handler(move || {
 				println!();
 				if let Err(e) = proxy
 					.send_event(crate::native::UserEvent::Exit)
 					.map_err(|_| Error::SendingOverChannel)
 				{
-					tracing::error!("{e}");
+					tracing::debug!(error = %e, "could not request exit from sigint handler; event loop is likely closed");
 				}
 			})
 			.map_err(Error::SetSigHandler)?;
