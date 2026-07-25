@@ -19,8 +19,17 @@ conventional_commits = false
 filter_unconventional = false
 require_conventional = false
 split_commits = true
+processing_order = [
+	"commit_preprocessors",
+	"split_commits",
+	"conventional_commits",
+	"commit_parsers",
+	"link_parsers",
+]
 commit_parsers = [
 	{ message = "^chore: Release$", skip = true },
 	{ message = "^release: ", skip = true },
+	{ message = "(?i)readme", skip = true },
+	{ message = "^fix workflow$", skip = true },
 	{ message = ".*", group = "Other" },
 ]

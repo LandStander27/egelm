@@ -1,9 +1,6 @@
 ## [0.3.0] - 2026-07-25
 
-- Fix badges in README
-- Fix workflow
 - Add rustfmt.toml file
-- Fix workflow
 - Add android support
 - Add platform-specific features
 - Add android eventloop entry point and native activity exports
@@ -15,8 +12,6 @@
 
 ## [0.2.2] - 2026-07-24
 
-- Auto update version in README on release
-- Edit README
 - Update the about_dialog api
 - Make fields in about_dialog optional
 - Remove the need for AboutDialogSettings
@@ -34,7 +29,6 @@
 - Make `Runner` generic
 - Fix `emoji` feature gate
 - Remove unused `Widget::init` function
-- Add README
 
 ## [0.1.1] - 2026-07-23
 
