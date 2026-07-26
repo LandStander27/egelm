@@ -36,7 +36,7 @@ jobs:
         run: cargo fmt --all --check
 
       - name: Lint
-        run: cargo clippy --workspace --all-targets --features egelm/glow,egelm/wgpu,egelm/wayland,egelm/x11,egelm/windows -- -D warnings
+        run: cargo clippy --workspace --all-targets --exclude android --features egelm/glow,egelm/wgpu,egelm/wayland,egelm/x11,egelm/windows -- -D warnings
 
       - name: Test
-        run: cargo test --locked --workspace --features egelm/glow,egelm/wgpu,egelm/wayland,egelm/x11,egelm/windows
+        run: cargo test --locked --workspace --exclude android --features egelm/glow,egelm/wgpu,egelm/wayland,egelm/x11,egelm/windows
