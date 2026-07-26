@@ -132,7 +132,9 @@ impl GlutinWindowContext {
 
 struct Surfaced {
 	gl_window: GlutinWindowContext,
-	egui_glow: egui_glow::EguiGlow,
+	egui_winit: egui_winit::State,
+	viewport_info: egui::ViewportInfo,
+	painter: egui_glow::Painter,
 	repaint_delay: Duration,
 	frame: Frame,
 }
@@ -149,14 +151,16 @@ pub(crate) struct GlowRunner<T: RootWidget> {
 }
 
 impl<T: RootWidget> GlowRunner<T> {
-	pub(crate) fn new(root: Managed<T>, error_rx: crossbeam_channel::Receiver<T::Error>, options: ViewportBuilder, proxy: EventLoopProxy<UserEvent>) -> Self {
+	pub(crate) fn new(mut root: Managed<T>, error_rx: crossbeam_channel::Receiver<T::Error>, options: ViewportBuilder, proxy: EventLoopProxy<UserEvent>) -> Self {
+		let egui_ctx = egui::Context::default();
+		root.setup(&egui_ctx);
 		Self {
 			handle: root.handle.clone(),
 			root,
 			viewport_builder: options,
 			proxy,
 			surfaced: None,
-			egui_ctx: egui::Context::default(),
+			egui_ctx,
 			error_dialog: crate::window::error_dialog::ErrorDialog::default(),
 			error_rx,
 		}
@@ -168,7 +172,8 @@ impl<T: RootWidget> GlowRunner<T> {
 		};
 
 		let window = surfaced.gl_window.window();
-		surfaced.egui_glow.run(window, |ui| {
+		let raw_input = surfaced.egui_winit.take_egui_input(window);
+		let output = self.egui_ctx.run_ui(raw_input, |ui| {
 			while let Ok(e) = self.error_rx.try_recv() {
 				let (summary, details) = self.root.error(&e);
 				self.error_dialog.emit(summary, details);
@@ -193,28 +198,61 @@ impl<T: RootWidget> GlowRunner<T> {
 			self.error_dialog.render(ui, &mut surfaced.frame);
 		});
 
+		let mut capture_data = Vec::new();
+		for (_, egui::ViewportOutput { commands, .. }) in output.viewport_output {
+			let mut actions_requested = Default::default();
+			egui_winit::process_viewport_commands(&self.egui_ctx, &mut surfaced.viewport_info, commands, window, &mut actions_requested);
+			for action in actions_requested {
+				match action {
+					egui_winit::ActionRequested::Screenshot(data) => capture_data.push(data),
+					_ => tracing::warn!(?action, "viewport action is not supported by the glow backend"),
+				}
+			}
+		}
+
 		let clear_color = self.root.clear_color();
-		unsafe {
-			use glow::HasContext as _;
-			surfaced.frame.gl.as_ref().unwrap().clear_color(
+		surfaced
+			.egui_winit
+			.handle_platform_output(window, output.platform_output);
+
+		let primitives = self
+			.egui_ctx
+			.tessellate(output.shapes, output.pixels_per_point);
+		let size = window.inner_size();
+		let paint_size = [size.width.max(1), size.height.max(1)];
+
+		surfaced.painter.clear(
+			paint_size,
+			[
 				clear_color[0] as f32 / 255.0,
 				clear_color[1] as f32 / 255.0,
 				clear_color[2] as f32 / 255.0,
 				clear_color[3] as f32 / 255.0,
-			); // TODO: let user choose bg color
-			surfaced
-				.frame
-				.gl
-				.as_ref()
-				.unwrap()
-				.clear(glow::COLOR_BUFFER_BIT);
+			],
+		);
+
+		surfaced
+			.painter
+			.paint_and_update_textures(paint_size, output.pixels_per_point, &primitives, &output.textures_delta);
+
+		if !capture_data.is_empty() {
+			let image = Arc::new(surfaced.painter.read_screen_rgba(paint_size));
+			for user_data in capture_data {
+				surfaced
+					.egui_winit
+					.egui_input_mut()
+					.events
+					.push(egui::Event::Screenshot {
+						viewport_id: egui::ViewportId::ROOT,
+						user_data,
+						image: Arc::clone(&image),
+					});
+			}
 		}
-		surfaced.egui_glow.paint(surfaced.gl_window.window());
 		surfaced
 			.gl_window
 			.swap_buffers()
 			.expect("could not swap buffers");
-		surfaced.gl_window.window().set_visible(true);
 
 		event_loop.set_control_flow(if surfaced.repaint_delay.is_zero() {
 			surfaced.gl_window.window().request_redraw();
@@ -248,11 +286,7 @@ impl<T: RootWidget> Runner for GlowRunner<T> {
 
 		match event.window_event {
 			egui_winit::accesskit_winit::WindowEvent::ActionRequested(request) => {
-				surfaced
-					.egui_glow
-					.egui_winit
-					.on_accesskit_action_request(request);
-
+				surfaced.egui_winit.on_accesskit_action_request(request);
 				surfaced.gl_window.window().request_redraw();
 			}
 			egui_winit::accesskit_winit::WindowEvent::InitialTreeRequested => {
@@ -279,22 +313,25 @@ impl<T: RootWidget> Runner for GlowRunner<T> {
 			})
 		});
 
-		#[allow(unused_mut)]
-		let mut egui_glow = egui_glow::EguiGlow::new(event_loop, Arc::clone(&gl), None, None, true);
+		let painter = egui_glow::Painter::new(Arc::clone(&gl), "", None, true).expect("failed to create the egui Glow painter");
+
+		let mut egui_winit = egui_winit::State::new(
+			self.egui_ctx.clone(),
+			egui::ViewportId::ROOT,
+			event_loop,
+			None,
+			event_loop.system_theme(),
+			Some(painter.max_texture_side()),
+		);
+		egui_winit.set_max_texture_side(painter.max_texture_side());
 
 		#[cfg(feature = "accesskit")]
-		egui_glow
-			.egui_winit
-			.init_accesskit(event_loop, gl_window.window(), self.proxy.clone());
-
-		self.root.setup(&egui_glow.egui_ctx);
+		egui_winit.init_accesskit(event_loop, gl_window.window(), self.proxy.clone());
 
 		let proxy = self.proxy.clone();
-		egui_glow
-			.egui_ctx
-			.set_request_repaint_callback(move |info| {
-				_ = proxy.send_event(UserEvent::RequestRepaint(info.delay));
-			});
+		self.egui_ctx.set_request_repaint_callback(move |info| {
+			_ = proxy.send_event(UserEvent::RequestRepaint(info.delay));
+		});
 
 		gl_window.window().set_visible(true);
 
@@ -306,7 +343,9 @@ impl<T: RootWidget> Runner for GlowRunner<T> {
 				#[cfg(feature = "wgpu")]
 				render_state: None,
 			},
-			egui_glow,
+			egui_winit,
+			viewport_info: egui::ViewportInfo::default(),
+			painter,
 			gl_window,
 			repaint_delay: Duration::MAX,
 		});
@@ -317,7 +356,7 @@ impl<T: RootWidget> Runner for GlowRunner<T> {
 	fn destroy_window(&mut self) {
 		if let Some(mut surfaced) = self.surfaced.take() {
 			tracing::info!(window_id = ?surfaced.gl_window.window().id(), "destroying glow window");
-			surfaced.egui_glow.destroy();
+			surfaced.painter.destroy();
 		}
 		self.handle.visible.store(false, Ordering::Relaxed);
 	}
@@ -376,7 +415,7 @@ impl<T: RootWidget> Runner for GlowRunner<T> {
 		}
 
 		let response = surfaced
-			.egui_glow
+			.egui_winit
 			.on_window_event(surfaced.gl_window.window(), &event);
 		if response.repaint {
 			surfaced.gl_window.window().request_redraw();
