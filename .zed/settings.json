@@ -3,11 +3,16 @@
 		"rust-analyzer": {
 			"initialization_options": {
 				"cargo": {
-					"features": ["default", "wayland", "wgpu", "glow"],
+					"features": [
+						"egelm/default",
+						"egelm/wayland",
+						"egelm/wgpu",
+						"egelm/glow",
+					],
 				},
 
 				// "cargo": {
-				// 	"features": ["default", "android"],
+				// 	"features": ["egelm/default", "egelm/android"],
 				// 	"target": "aarch64-linux-android",
 				// 	"extraEnv": {
 				// 		"ANDROID_NDK_HOME": "/opt/android-ndk",

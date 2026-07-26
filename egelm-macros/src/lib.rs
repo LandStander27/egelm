@@ -6,18 +6,21 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{Data, DeriveInput, Fields, GenericArgument, PathArguments, Type, parse_macro_input};
 
-/// Implements [`egelm::window::TickChildren`] for a widget struct.
+/// Implements [`egelm::window::AutoLifecycle`] for a widget struct.
 ///
-/// The generated [`TickChildren::tick_children_auto`] implementation calls
-/// [`Managed::update_route_error`] on every named field whose outer type is
-/// `Managed<T>`. This lets the `egelm` runtime automatically process messages
-/// and tick managed child widgets whenever their parent is updated.
+/// For every named field whose outer type is `Managed<T>`, the generated
+/// implementation processes messages and ticks the child during
+/// [`AutoLifecycle::tick_children_auto`], initializes it during
+/// [`AutoLifecycle::init_children_auto`], and shuts it down during
+/// [`AutoLifecycle::shutdown_children_auto`].
 ///
 /// Tuple and unit structs receive an empty implementation. Applying this derive
 /// to an enum or union produces a compile error.
 ///
+/// [`AutoLifecycle::init_children_auto`]: egelm::window::AutoLifecycle::init_children_auto
+/// [`AutoLifecycle::shutdown_children_auto`]: egelm::window::AutoLifecycle::shutdown_children_auto
+/// [`AutoLifecycle::tick_children_auto`]: egelm::window::AutoLifecycle::tick_children_auto
 /// [`Managed::update_route_error`]: egelm::window::Managed::update_route_error
-/// [`TickChildren::tick_children_auto`]: egelm::window::TickChildren::tick_children_auto
 ///
 /// # Examples
 ///
@@ -81,27 +84,37 @@ pub fn derive_children(input: TokenStream) -> TokenStream {
 		// 	.to_compile_error()
 		// 	.into();
 		return quote! {
-			impl egelm::window::TickChildren for #name {
-				fn tick_children_auto(&mut self) {}
-			}
+			impl egelm::window::AutoLifecycle for #name {}
 		}
 		.into();
 	};
 
-	let ticks = fields.named.iter().filter_map(|field| {
-		if !is_managed(&field.ty) {
-			return None;
-		}
-		let field_name = field.ident.as_ref()?;
-		Some(quote! {
-			self.#field_name.update_route_error();
+	let field_names: Vec<proc_macro2::TokenStream> = fields
+		.named
+		.iter()
+		.filter_map(|field| {
+			if !is_managed(&field.ty) {
+				return None;
+			}
+			let field_name = field.ident.as_ref()?;
+			Some(quote! {
+				#field_name
+			})
 		})
-	});
+		.collect();
 
 	let expanded = quote! {
-		impl egelm::window::TickChildren for #name {
+		impl egelm::window::AutoLifecycle for #name {
 			fn tick_children_auto(&mut self) {
-				#(#ticks)*
+				#(self.#field_names.update_route_error();)*
+			}
+
+			fn init_children_auto(&mut self) {
+				#(self.#field_names.init();)*
+			}
+
+			fn shutdown_children_auto(&mut self) {
+				#(self.#field_names.shutdown();)*
 			}
 		}
 	};

@@ -43,9 +43,9 @@ impl Widget for ExampleApp {
 			Message::Load => {
 				self.loading = true;
 				self.result = None;
-				ctx.spawn(|ctx| async move {
+				ctx.spawn(|_ctx| async move {
 					tokio::time::sleep(Duration::from_secs(2)).await;
-					ctx.emit(Message::Loaded("Background task finished".to_owned()));
+					Ok(Message::Loaded("Background task finished".to_string()))
 				});
 			}
 			Message::Loaded(result) => {

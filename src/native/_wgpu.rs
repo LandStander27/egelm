@@ -33,7 +33,9 @@ pub(crate) struct WgpuRunner<T: RootWidget> {
 }
 
 impl<T: RootWidget> WgpuRunner<T> {
-	pub(crate) fn new(root: Managed<T>, error_rx: crossbeam_channel::Receiver<T::Error>, options: ViewportBuilder, proxy: EventLoopProxy<UserEvent>) -> Self {
+	pub(crate) fn new(mut root: Managed<T>, error_rx: crossbeam_channel::Receiver<T::Error>, options: ViewportBuilder, proxy: EventLoopProxy<UserEvent>) -> Self {
+		let egui_ctx = egui::Context::default();
+		root.setup(&egui_ctx);
 		Self {
 			handle: root.handle.clone(),
 			root,
@@ -41,7 +43,7 @@ impl<T: RootWidget> WgpuRunner<T> {
 			proxy,
 			painter: None,
 			surfaced: None,
-			egui_ctx: egui::Context::default(),
+			egui_ctx,
 			error_dialog: crate::window::error_dialog::ErrorDialog::default(),
 			error_rx,
 		}
@@ -51,7 +53,12 @@ impl<T: RootWidget> WgpuRunner<T> {
 		let Some(surfaced) = self.surfaced.as_mut() else {
 			return;
 		};
+		let painter = self
+			.painter
+			.as_mut()
+			.expect("wgpu painter was not initialized");
 
+		painter.handle_screenshots(&mut surfaced.egui_winit.egui_input_mut().events);
 		let raw_input = surfaced.egui_winit.take_egui_input(&surfaced.window);
 		let output = self.egui_ctx.run_ui(raw_input, |ui| {
 			while let Ok(e) = self.error_rx.try_recv() {
@@ -78,11 +85,15 @@ impl<T: RootWidget> WgpuRunner<T> {
 			self.error_dialog.render(ui, &mut surfaced.frame);
 		});
 
+		let mut capture_data = Vec::new();
 		for (_, egui::ViewportOutput { commands, .. }) in output.viewport_output {
 			let mut actions_requested = Default::default();
 			egui_winit::process_viewport_commands(&self.egui_ctx, &mut surfaced.viewport_info, commands, &surfaced.window, &mut actions_requested);
 			for action in actions_requested {
-				tracing::warn!(?action, "viewport action is not supported by the wgpu backend");
+				match action {
+					egui_winit::ActionRequested::Screenshot(data) => capture_data.push(data),
+					_ => tracing::warn!(?action, "viewport action is not supported by the wgpu backend"),
+				}
 			}
 		}
 		surfaced
@@ -92,23 +103,20 @@ impl<T: RootWidget> WgpuRunner<T> {
 			.egui_ctx
 			.tessellate(output.shapes, output.pixels_per_point);
 		let clear_color = self.root.clear_color();
-		self.painter
-			.as_mut()
-			.expect("wgpu painter was not initialized")
-			.paint_and_update_textures(
-				egui::ViewportId::ROOT,
-				output.pixels_per_point,
-				[
-					clear_color[0] as f32 / 255.0,
-					clear_color[1] as f32 / 255.0,
-					clear_color[2] as f32 / 255.0,
-					clear_color[3] as f32 / 255.0,
-				],
-				&primitives,
-				&output.textures_delta,
-				Vec::new(),
-				&surfaced.window,
-			);
+		painter.paint_and_update_textures(
+			egui::ViewportId::ROOT,
+			output.pixels_per_point,
+			[
+				clear_color[0] as f32 / 255.0,
+				clear_color[1] as f32 / 255.0,
+				clear_color[2] as f32 / 255.0,
+				clear_color[3] as f32 / 255.0,
+			],
+			&primitives,
+			&output.textures_delta,
+			capture_data,
+			&surfaced.window,
+		);
 		surfaced.window.set_visible(true);
 
 		event_loop.set_control_flow(if surfaced.repaint_delay.is_zero() {
@@ -125,6 +133,32 @@ impl<T: RootWidget> WgpuRunner<T> {
 impl<T: RootWidget> Runner for WgpuRunner<T> {
 	fn has_window(&self) -> bool {
 		self.surfaced.is_some()
+	}
+
+	fn shutdown_root(&mut self) {
+		self.root.shutdown();
+	}
+
+	#[cfg(feature = "accesskit")]
+	fn access_kit_event(&mut self, event: egui_winit::accesskit_winit::Event) {
+		let Some(surfaced) = &mut self.surfaced else {
+			return;
+		};
+
+		if event.window_id != surfaced.window.id() {
+			return;
+		}
+
+		match event.window_event {
+			egui_winit::accesskit_winit::WindowEvent::ActionRequested(request) => {
+				surfaced.egui_winit.on_accesskit_action_request(request);
+				surfaced.window.request_redraw();
+			}
+			egui_winit::accesskit_winit::WindowEvent::InitialTreeRequested => {
+				surfaced.window.request_redraw();
+			}
+			egui_winit::accesskit_winit::WindowEvent::AccessibilityDeactivated => {}
+		}
 	}
 
 	#[tracing::instrument(skip(self, event_loop))]
@@ -156,7 +190,8 @@ impl<T: RootWidget> Runner for WgpuRunner<T> {
 			.render_state()
 			.expect("wgpu render state was not initialized");
 
-		let egui_winit = egui_winit::State::new(
+		#[allow(unused_mut)]
+		let mut egui_winit = egui_winit::State::new(
 			self.egui_ctx.clone(),
 			egui::ViewportId::ROOT,
 			event_loop,
@@ -164,7 +199,9 @@ impl<T: RootWidget> Runner for WgpuRunner<T> {
 			event_loop.system_theme(),
 			Some(render_state.device.limits().max_texture_dimension_2d as usize),
 		);
-		self.root.setup(&self.egui_ctx);
+
+		#[cfg(feature = "accesskit")]
+		egui_winit.init_accesskit(event_loop, &window, self.proxy.clone());
 
 		let proxy = self.proxy.clone();
 		self.egui_ctx.set_request_repaint_callback(move |info| {

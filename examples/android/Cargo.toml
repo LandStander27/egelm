@@ -9,7 +9,7 @@ release = false
 
 [package.metadata.android]
 package = "com.example.egelm"
-build_targets = ["aarch64-linux-android"]
+build_targets = ["aarch64-linux-android", "x86_64-linux-android"]
 resources = "res"
 
 [package.metadata.android.sdk]

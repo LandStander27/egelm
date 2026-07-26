@@ -232,6 +232,36 @@ impl<T: RootWidget> Runner for GlowRunner<T> {
 		self.surfaced.is_some()
 	}
 
+	fn shutdown_root(&mut self) {
+		self.root.shutdown();
+	}
+
+	#[cfg(feature = "accesskit")]
+	fn access_kit_event(&mut self, event: egui_winit::accesskit_winit::Event) {
+		let Some(surfaced) = &mut self.surfaced else {
+			return;
+		};
+
+		if event.window_id != surfaced.gl_window.window().id() {
+			return;
+		}
+
+		match event.window_event {
+			egui_winit::accesskit_winit::WindowEvent::ActionRequested(request) => {
+				surfaced
+					.egui_glow
+					.egui_winit
+					.on_accesskit_action_request(request);
+
+				surfaced.gl_window.window().request_redraw();
+			}
+			egui_winit::accesskit_winit::WindowEvent::InitialTreeRequested => {
+				surfaced.gl_window.window().request_redraw();
+			}
+			egui_winit::accesskit_winit::WindowEvent::AccessibilityDeactivated => {}
+		}
+	}
+
 	#[tracing::instrument(skip(self, event_loop))]
 	fn ensure_window(&mut self, event_loop: &ActiveEventLoop) {
 		if self.surfaced.is_some() {
@@ -249,7 +279,14 @@ impl<T: RootWidget> Runner for GlowRunner<T> {
 			})
 		});
 
-		let egui_glow = egui_glow::EguiGlow::new(event_loop, Arc::clone(&gl), None, None, true);
+		#[allow(unused_mut)]
+		let mut egui_glow = egui_glow::EguiGlow::new(event_loop, Arc::clone(&gl), None, None, true);
+
+		#[cfg(feature = "accesskit")]
+		egui_glow
+			.egui_winit
+			.init_accesskit(event_loop, gl_window.window(), self.proxy.clone());
+
 		self.root.setup(&egui_glow.egui_ctx);
 
 		let proxy = self.proxy.clone();

@@ -28,9 +28,9 @@ impl Widget for ExampleApp {
 		match msg {
 			Message::Close => {
 				handle.hide();
-				ctx.spawn(|ctx| async move {
+				ctx.spawn(|_ctx| async move {
 					tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-					ctx.emit(Message::Show);
+					Ok(Message::Show)
 				});
 			}
 			Message::Show => handle.show(),

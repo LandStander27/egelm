@@ -27,6 +27,7 @@
 use std::sync::Arc;
 
 use egui_winit::winit::event_loop::EventLoop;
+use tokio_util::sync::CancellationToken;
 
 use crate::prelude::*;
 
@@ -71,12 +72,13 @@ impl<M: 'static> Sender<M> {
 /// Communication channels and task utilities for a [`Widget`].
 ///
 /// A context lets a widget enqueue its own messages, report errors, send
-/// output to its parent, and start asynchronous work. Clones refer to the same
-/// underlying channels.
+/// output to its parent, and start cancellable asynchronous work. Clones refer
+/// to the same underlying channels and cancellation scope.
 pub struct Context<W: Widget> {
 	input: Sender<W::Message>,
 	error: Sender<W::Error>,
 	output: Option<Sender<W::Output>>,
+	cancellation: CancellationToken,
 }
 
 impl<W: Widget> Clone for Context<W> {
@@ -85,6 +87,7 @@ impl<W: Widget> Clone for Context<W> {
 			error: self.error.clone(),
 			input: self.input.clone(),
 			output: self.output.clone(),
+			cancellation: self.cancellation.clone(),
 		}
 	}
 }
@@ -101,9 +104,12 @@ impl<W: Widget> std::fmt::Debug for Context<W> {
 }
 
 impl<W: Widget + 'static> Context<W> {
-	/// Spawns an asynchronous task with a clone of this context.
+	/// Spawns a cancellable asynchronous task with a clone of this context.
 	///
-	/// The task can emit messages or errors after performing background work.
+	/// When the future completes, its successful value is enqueued as a widget
+	/// message and its error is routed through this context. The future is
+	/// dropped without producing either value when the managed widget shuts
+	/// down.
 	///
 	/// # Panics
 	///
@@ -111,12 +117,20 @@ impl<W: Widget + 'static> Context<W> {
 	pub fn spawn<F, Fut>(&self, f: F)
 	where
 		F: FnOnce(Context<W>) -> Fut + Send + 'static,
-		Fut: Future<Output = ()> + Send + 'static,
+		Fut: Future<Output = Result<W::Message, W::Error>> + Send + 'static,
 	{
 		let ctx = self.clone();
+		let cancellation = self.cancellation.child_token();
 
 		tokio::spawn(async move {
-			f(ctx).await;
+			let Some(out) = cancellation.run_until_cancelled(f(ctx.clone())).await else {
+				return;
+			};
+
+			match out {
+				Ok(msg) => ctx.emit(msg),
+				Err(err) => ctx.error(err),
+			}
 		});
 	}
 
@@ -157,8 +171,10 @@ impl<W: Widget + 'static> Context<W> {
 ///
 /// A widget renders itself in [`view`](Self::view), handles queued messages in
 /// [`update`](Self::update), and may perform per-cycle work in
-/// [`tick`](Self::tick). Deriving [`egelm_macros::Widget`] implements child
-/// ticking for structs containing [`Managed`] fields.
+/// [`tick`](Self::tick). [`init`](Self::init) and
+/// [`shutdown`](Self::shutdown) bracket its managed lifetime. Deriving
+/// [`egelm_macros::Widget`] propagates ticking, initialization, and shutdown to
+/// named [`Managed`] fields.
 ///
 /// # Examples
 ///
@@ -183,7 +199,7 @@ impl<W: Widget + 'static> Context<W> {
 ///     }
 /// }
 /// ```
-pub trait Widget: TickChildren + std::fmt::Debug + Sized {
+pub trait Widget: AutoLifecycle + std::fmt::Debug + Sized {
 	/// Messages consumed by [`update`](Self::update).
 	type Message: Send + std::fmt::Debug + 'static;
 	/// Values this widget can send to its parent.
@@ -220,18 +236,29 @@ pub trait Widget: TickChildren + std::fmt::Debug + Sized {
 		Ok(())
 	}
 
-	// /// Provides an optional widget-initialization hook.
-	// ///
-	// /// The default implementation does nothing. Callers that manage a widget's
-	// /// lifecycle may invoke this hook with its communication context.
-	// #[expect(unused_variables)]
-	// fn init(&mut self, ctx: &Context<Self>) {}
+	/// Provides an optional widget-initialization hook.
+	///
+	/// [`Managed::init`] invokes this at most once per managed lifetime, before
+	/// initializing managed children. The application initializes its root
+	/// widget before entering the event loop. The default implementation does
+	/// nothing.
+	#[expect(unused_variables)]
+	fn init(&mut self, ctx: &Context<Self>) {}
+
+	/// Provides an optional widget-shutdown hook.
+	///
+	/// [`Managed::shutdown`] invokes this at most once after shutting down
+	/// managed children. Shutdown also cancels tasks spawned from the widget's
+	/// context. Dropping an initialized [`Managed`] widget invokes shutdown
+	/// automatically. The default implementation does nothing.
+	#[expect(unused_variables)]
+	fn shutdown(&mut self, ctx: &Context<Self>) {}
 }
 
 /// A rendering-only widget with no messages, output, or errors.
 ///
 /// Implementing this trait automatically implements [`Widget`] and
-/// [`TickChildren`] with unit associated types.
+/// [`AutoLifecycle`] with unit associated types and no lifecycle hooks.
 ///
 /// # Examples
 ///
@@ -252,7 +279,7 @@ pub trait LeafWidget: std::fmt::Debug {
 	fn render(&mut self, ui: &mut egui::Ui, frame: &mut Frame);
 }
 
-impl<T: LeafWidget> TickChildren for T {}
+impl<T: LeafWidget> AutoLifecycle for T {}
 impl<T: LeafWidget> Widget for T {
 	type Message = ();
 	type Output = ();
@@ -261,16 +288,6 @@ impl<T: LeafWidget> Widget for T {
 	#[inline(always)]
 	fn view(&mut self, ui: &mut egui::Ui, frame: &mut Frame, _ctx: &Context<Self>) {
 		self.render(ui, frame);
-	}
-
-	#[inline(always)]
-	fn update(&mut self, _msg: (), _handle: &Handle, _ctx: &Context<Self>) -> Result<(), ()> {
-		Ok(())
-	}
-
-	#[inline(always)]
-	fn tick(&mut self, _ctx: &Context<Self>) -> Result<(), Self::Error> {
-		Ok(())
 	}
 }
 
@@ -316,12 +333,15 @@ pub trait RootWidget: Widget + 'static {
 ///
 /// `Managed<T>` dereferences to `T`, allowing direct access to the wrapped
 /// widget. Its update methods drain queued messages before ticking the widget.
+/// It also owns the widget's initialization state and asynchronous-task
+/// cancellation scope.
 #[derive(Debug)]
-pub struct Managed<T: Widget> {
+pub struct Managed<T: Widget + 'static> {
 	widget: T,
 	rx: crossbeam_channel::Receiver<T::Message>,
 	ctx: Context<T>,
 	pub(crate) handle: Handle,
+	initialized: bool,
 }
 
 impl<T: Widget> std::ops::Deref for Managed<T> {
@@ -343,7 +363,8 @@ impl<T: Widget + 'static> Managed<T> {
 	///
 	/// `output` may be `None` for a widget whose output should be discarded.
 	/// Messages sent through the managed widget's context wake the supplied
-	/// application `handle`.
+	/// application `handle`. The returned widget is not initialized until
+	/// [`init`](Self::init) is called.
 	pub fn new(output: impl Into<Option<Sender<T::Output>>>, error: Sender<T::Error>, handle: &Handle, widget: T) -> Self {
 		let (tx, rx) = crossbeam_channel::unbounded();
 		let wake = handle.clone();
@@ -359,8 +380,10 @@ impl<T: Widget + 'static> Managed<T> {
 				}),
 				output: output.into(),
 				error,
+				cancellation: CancellationToken::new(),
 			},
 			handle: handle.clone(),
+			initialized: false,
 		}
 	}
 
@@ -428,12 +451,49 @@ impl<T: Widget + 'static> Managed<T> {
 		self.widget.tick_children_auto();
 		self.widget.tick(&self.ctx)
 	}
+
+	/// Initializes this widget and then its managed children.
+	///
+	/// Calling this more than once without an intervening
+	/// [`shutdown`](Self::shutdown) has no effect.
+	pub fn init(&mut self) {
+		if self.initialized {
+			return;
+		}
+
+		self.widget.init(&self.ctx);
+		self.widget.init_children_auto();
+		self.initialized = true;
+	}
+
+	/// Shuts down this widget and cancels its asynchronous tasks.
+	///
+	/// Managed children shut down before this widget's [`Widget::shutdown`]
+	/// hook runs. Calling this before initialization or more than once has no
+	/// effect. Dropping an initialized managed widget calls this automatically.
+	pub fn shutdown(&mut self) {
+		if !self.initialized {
+			return;
+		}
+
+		self.widget.shutdown_children_auto();
+		self.widget.shutdown(&self.ctx);
+		self.ctx.cancellation.cancel();
+		self.initialized = false;
+	}
 }
 
-/// Updates child widgets managed by a parent widget.
+impl<W: Widget + 'static> Drop for Managed<W> {
+	fn drop(&mut self) {
+		self.shutdown();
+	}
+}
+
+/// Propagates lifecycle operations to widgets managed by a parent.
 ///
 /// The [`egelm_macros::Widget`] derive macro implements this trait by calling
-/// [`Managed::update_route_error`] on each named `Managed<T>` field.
+/// the corresponding update, initialization, or shutdown operation on every
+/// named `Managed<T>` field.
 ///
 /// # Examples
 ///
@@ -446,13 +506,22 @@ impl<T: Widget + 'static> Managed<T> {
 /// let mut widget = NoChildren;
 /// widget.tick_children_auto();
 /// ```
-pub trait TickChildren {
-	/// Updates all managed child widgets.
+pub trait AutoLifecycle {
+	/// Processes messages and ticks all managed child widgets.
 	///
 	/// The default implementation does nothing.
 	fn tick_children_auto(&mut self) {}
+
+	/// Initializes all managed child widgets in declaration order.
+	///
+	/// The default implementation does nothing.
+	fn init_children_auto(&mut self) {}
+
+	/// Shuts down all managed child widgets in declaration order.
+	///
+	/// The default implementation does nothing.
+	fn shutdown_children_auto(&mut self) {}
 }
-// impl<T> TickChildren for T {}
 
 /// Owns a root widget and runs it in a native event loop.
 ///
@@ -539,6 +608,7 @@ impl<T: RootWidget> App<T> {
 					handle.request_repaint();
 				}
 			}),
+			cancellation: CancellationToken::new(),
 		};
 
 		Self {
@@ -547,6 +617,7 @@ impl<T: RootWidget> App<T> {
 				rx,
 				ctx,
 				handle,
+				initialized: false,
 			},
 			ctrlc_handler: true,
 			error_rx,
@@ -564,7 +635,7 @@ impl<T: RootWidget> App<T> {
 	/// Runs the native application event loop on Android with `wgpu` backend.
 	///
 	/// For more information, see [`App::run`](Self::run).
-	#[cfg(all(feature = "android", target_os = "android"))]
+	#[cfg(android)]
 	#[tracing::instrument(skip(self, options))]
 	pub fn run_android(self, android_app: AndroidApp, options: ViewportBuilder) -> Result<(), Error> {
 		use egui_winit::winit::platform::android::EventLoopBuilderExtAndroid;
@@ -620,6 +691,9 @@ impl<T: RootWidget> App<T> {
 		return self.run_with_backend(crate::native::Renderer::Glow, options);
 		#[cfg(all(not(feature = "glow"), feature = "wgpu"))]
 		return self.run_with_backend(crate::native::Renderer::Wgpu, options);
+
+		#[cfg(all(not(wgpu), not(glow)))]
+		Ok(())
 	}
 
 	/// Exactly the same as [`App::run`](Self::run) but allows the caller to select a specific rendering backend.
@@ -632,29 +706,31 @@ impl<T: RootWidget> App<T> {
 	}
 
 	#[tracing::instrument(skip(self, renderer, event_loop, options))]
-	fn run_with_event_loop(self, event_loop: EventLoop<crate::native::UserEvent>, renderer: crate::native::Renderer, options: ViewportBuilder) -> Result<(), Error> {
+	fn run_with_event_loop(mut self, event_loop: EventLoop<crate::native::UserEvent>, renderer: crate::native::Renderer, options: ViewportBuilder) -> Result<(), Error> {
 		let proxy = event_loop.create_proxy();
 		self.root.handle.init(proxy.clone());
 
 		tracing::info!(?renderer, "starting application event loop");
 		let mut runner: Box<dyn crate::native::Runner> = match renderer {
-			#[cfg(feature = "glow")]
+			#[cfg(glow)]
 			crate::native::Renderer::Glow => {
 				tracing::debug!("initializing glow renderer");
+				self.root.init();
 				Box::new(crate::native::_glow::GlowRunner::new(self.root, self.error_rx, options, proxy.clone()))
 			}
-			#[cfg(feature = "wgpu")]
+			#[cfg(wgpu)]
 			crate::native::Renderer::Wgpu => {
 				tracing::debug!("initializing wgpu renderer");
+				self.root.init();
 				Box::new(crate::native::_wgpu::WgpuRunner::new(self.root, self.error_rx, options, proxy.clone()))
 			}
-			#[cfg(not(feature = "glow"))]
+			#[cfg(not(glow))]
 			crate::native::Renderer::Glow => return Err(Error::RendererUnavailable("glow")),
-			#[cfg(not(feature = "wgpu"))]
+			#[cfg(not(wgpu))]
 			crate::native::Renderer::Wgpu => return Err(Error::RendererUnavailable("wgpu")),
 		};
 
-		#[cfg(all(feature = "ctrlc", not(target_os = "android")))]
+		#[cfg(ctrlc)]
 		if self.ctrlc_handler {
 			tracing::debug!("installing sigint handler");
 			ctrlc::set_handler(move || {
@@ -696,6 +772,65 @@ mod tests {
 	use super::*;
 
 	#[derive(Debug)]
+	struct LifecycleChild {
+		events: Arc<Mutex<Vec<&'static str>>>,
+	}
+
+	impl AutoLifecycle for LifecycleChild {}
+
+	impl Widget for LifecycleChild {
+		type Message = ();
+		type Output = ();
+		type Error = ();
+
+		fn view(&mut self, _ui: &mut egui::Ui, _frame: &mut Frame, _ctx: &Context<Self>) {}
+
+		fn init(&mut self, _ctx: &Context<Self>) {
+			self.events.lock().unwrap().push("child init");
+		}
+
+		fn shutdown(&mut self, _ctx: &Context<Self>) {
+			self.events.lock().unwrap().push("child shutdown");
+		}
+	}
+
+	#[derive(Debug)]
+	struct LifecycleParent {
+		child: Managed<LifecycleChild>,
+		events: Arc<Mutex<Vec<&'static str>>>,
+	}
+
+	impl AutoLifecycle for LifecycleParent {
+		fn tick_children_auto(&mut self) {
+			self.child.update_route_error();
+		}
+
+		fn init_children_auto(&mut self) {
+			self.child.init();
+		}
+
+		fn shutdown_children_auto(&mut self) {
+			self.child.shutdown();
+		}
+	}
+
+	impl Widget for LifecycleParent {
+		type Message = ();
+		type Output = ();
+		type Error = ();
+
+		fn view(&mut self, _ui: &mut egui::Ui, _frame: &mut Frame, _ctx: &Context<Self>) {}
+
+		fn init(&mut self, _ctx: &Context<Self>) {
+			self.events.lock().unwrap().push("parent init");
+		}
+
+		fn shutdown(&mut self, _ctx: &Context<Self>) {
+			self.events.lock().unwrap().push("parent shutdown");
+		}
+	}
+
+	#[derive(Debug)]
 	struct TestWidget {
 		updates: Vec<u32>,
 		ticks: usize,
@@ -704,7 +839,7 @@ mod tests {
 		fail_tick: bool,
 	}
 
-	impl TickChildren for TestWidget {}
+	impl AutoLifecycle for TestWidget {}
 
 	impl Widget for TestWidget {
 		type Message = u32;
@@ -752,6 +887,13 @@ mod tests {
 			fail_update: false,
 			fail_tick: false,
 		}
+	}
+
+	fn lifecycle_managed(events: Arc<Mutex<Vec<&'static str>>>) -> Managed<LifecycleParent> {
+		let handle = Handle::default();
+		let (error, _error_rx) = sender();
+		let child = Managed::new(None, error.clone(), &handle, LifecycleChild { events: events.clone() });
+		Managed::new(None, error, &handle, LifecycleParent { child, events })
 	}
 
 	#[test]
@@ -820,5 +962,63 @@ mod tests {
 
 		assert_eq!(managed.ticks, 1);
 		assert_eq!(error_rx.try_recv(), Ok("tick failed"));
+	}
+
+	#[test]
+	fn managed_lifecycle_is_ordered_and_idempotent() {
+		let events = Arc::new(Mutex::new(Vec::new()));
+		let mut managed = lifecycle_managed(events.clone());
+
+		managed.init();
+		managed.init();
+		assert_eq!(*events.lock().unwrap(), ["parent init", "child init"]);
+
+		managed.shutdown();
+		managed.shutdown();
+		assert_eq!(*events.lock().unwrap(), ["parent init", "child init", "child shutdown", "parent shutdown"]);
+	}
+
+	#[test]
+	fn dropping_initialized_managed_widget_runs_shutdown() {
+		let events = Arc::new(Mutex::new(Vec::new()));
+
+		{
+			let mut managed = lifecycle_managed(events.clone());
+			managed.init();
+		}
+
+		assert_eq!(*events.lock().unwrap(), ["parent init", "child init", "child shutdown", "parent shutdown"]);
+	}
+
+	#[tokio::test]
+	async fn shutdown_cancels_spawned_tasks() {
+		struct NotifyOnDrop(Option<tokio::sync::oneshot::Sender<()>>);
+
+		impl Drop for NotifyOnDrop {
+			fn drop(&mut self) {
+				if let Some(tx) = self.0.take() {
+					_ = tx.send(());
+				}
+			}
+		}
+
+		let (mut managed, _output_rx, _error_rx) = managed(test_widget());
+		managed.init();
+
+		let (started_tx, started_rx) = tokio::sync::oneshot::channel();
+		let (cancelled_tx, cancelled_rx) = tokio::sync::oneshot::channel();
+		managed.ctx.spawn(move |_ctx| async move {
+			let _notify = NotifyOnDrop(Some(cancelled_tx));
+			_ = started_tx.send(());
+			std::future::pending::<Result<u32, &'static str>>().await
+		});
+
+		started_rx.await.unwrap();
+		managed.shutdown();
+
+		tokio::time::timeout(std::time::Duration::from_secs(1), cancelled_rx)
+			.await
+			.expect("task was not cancelled")
+			.expect("task cancellation signal was dropped");
 	}
 }

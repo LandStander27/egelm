@@ -8,9 +8,10 @@ use std::{
 	time::Duration,
 };
 
-#[cfg(feature = "glow")]
+#[cfg(glow)]
 use egui_glow::glow;
-#[cfg(feature = "wgpu")]
+
+#[cfg(wgpu)]
 use egui_wgpu::wgpu;
 use egui_winit::winit::{
 	self,
@@ -20,11 +21,11 @@ use egui_winit::winit::{
 };
 
 /// OpenGL rendering and native window control.
-#[cfg(feature = "glow")]
+#[cfg(glow)]
 pub(crate) mod _glow;
 
 /// `wgpu` rendering and native window control.
-#[cfg(feature = "wgpu")]
+#[cfg(wgpu)]
 pub(crate) mod _wgpu;
 
 /// Renderer selection for the app.
@@ -48,10 +49,10 @@ pub enum Renderer {
 pub struct Frame {
 	handle: Handle,
 
-	#[cfg(feature = "glow")]
+	#[cfg(glow)]
 	gl: Option<Arc<glow::Context>>,
 
-	#[cfg(feature = "wgpu")]
+	#[cfg(wgpu)]
 	render_state: Option<egui_wgpu::RenderState>,
 
 	window: Arc<winit::window::Window>,
@@ -61,7 +62,7 @@ impl Frame {
 	/// Returns the OpenGL context used to paint the frame.
 	///
 	/// Returns None if the `glow` feature is not enabled or if the frame was created without an OpenGL context.
-	#[cfg(feature = "glow")]
+	#[cfg(glow)]
 	pub fn gl(&self) -> Option<&Arc<glow::Context>> {
 		self.gl.as_ref()
 	}
@@ -69,7 +70,7 @@ impl Frame {
 	/// Returns the `wgpu` state used to paint the frame.
 	///
 	/// Returns None if the `wgpu` feature is not enabled or if the frame was created without a `wgpu` context.
-	#[cfg(feature = "wgpu")]
+	#[cfg(wgpu)]
 	pub fn render_state(&self) -> Option<&egui_wgpu::RenderState> {
 		self.render_state.as_ref()
 	}
@@ -77,7 +78,7 @@ impl Frame {
 	/// Returns the `wgpu` device used to paint the frame.
 	///
 	/// Returns None if the `wgpu` feature is not enabled or if the frame was created without a `wgpu` context.
-	#[cfg(feature = "wgpu")]
+	#[cfg(wgpu)]
 	pub fn device(&self) -> Option<&wgpu::Device> {
 		self.render_state.as_ref().map(|x| &x.device)
 	}
@@ -85,7 +86,7 @@ impl Frame {
 	/// Returns the `wgpu` queue used to paint the frame.
 	///
 	/// Returns None if the `wgpu` feature is not enabled or if the frame was created without a `wgpu` context.
-	#[cfg(feature = "wgpu")]
+	#[cfg(wgpu)]
 	pub fn queue(&self) -> Option<&wgpu::Queue> {
 		self.render_state.as_ref().map(|x| &x.queue)
 	}
@@ -159,7 +160,7 @@ impl Handle {
 	///
 	/// Calling [`show`](Self::show) later creates a new native window. Before
 	/// event-loop initialization, this does nothing.
-	#[cfg(not(target_os = "android"))]
+	#[cfg(not(android))]
 	pub fn hide(&self) {
 		if let Some(proxy) = self.proxy.get() {
 			_ = proxy.send_event(UserEvent::Hide);
@@ -171,7 +172,7 @@ impl Handle {
 	///
 	/// If the window was destroyed by [`hide`](Self::hide), it is recreated.
 	/// Before event-loop initialization, this does nothing.
-	#[cfg(not(target_os = "android"))]
+	#[cfg(not(android))]
 	pub fn show(&self) {
 		if let Some(proxy) = self.proxy.get() {
 			_ = proxy.send_event(UserEvent::Show);
@@ -195,13 +196,23 @@ impl Handle {
 }
 
 #[allow(unused)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug)]
 pub(crate) enum UserEvent {
 	Show,
 	Hide,
 	Exit,
 	RequestRepaint(Duration),
 	MessageReady,
+
+	#[cfg(feature = "accesskit")]
+	AccessKit(egui_winit::accesskit_winit::Event),
+}
+
+#[cfg(feature = "accesskit")]
+impl From<egui_winit::accesskit_winit::Event> for UserEvent {
+	fn from(value: egui_winit::accesskit_winit::Event) -> Self {
+		Self::AccessKit(value)
+	}
 }
 
 /// Renderer-independent application lifecycle used by the native backends.
@@ -213,6 +224,10 @@ pub(crate) trait Runner {
 	fn request_redraw(&self);
 	fn set_repaint_delay(&mut self, delay: Duration);
 	fn window_event(&mut self, event_loop: &ActiveEventLoop, window_id: winit::window::WindowId, event: WindowEvent);
+	fn shutdown_root(&mut self);
+
+	#[cfg(feature = "accesskit")]
+	fn access_kit_event(&mut self, event: egui_winit::accesskit_winit::Event);
 }
 
 impl ApplicationHandler<UserEvent> for dyn Runner {
@@ -242,6 +257,9 @@ impl ApplicationHandler<UserEvent> for dyn Runner {
 			UserEvent::Exit => event_loop.exit(),
 			UserEvent::RequestRepaint(delay) => self.set_repaint_delay(delay),
 			UserEvent::MessageReady => self.update(),
+
+			#[cfg(feature = "accesskit")]
+			UserEvent::AccessKit(event) => self.access_kit_event(event),
 		}
 	}
 
@@ -251,6 +269,7 @@ impl ApplicationHandler<UserEvent> for dyn Runner {
 
 	fn exiting(&mut self, _event_loop: &ActiveEventLoop) {
 		tracing::info!("application event loop exiting");
+		self.shutdown_root();
 		self.destroy_window();
 	}
 }

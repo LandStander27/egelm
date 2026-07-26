@@ -17,9 +17,9 @@ pub use crate::emoji::emoji;
 
 pub(crate) use crate::error::Error;
 pub use crate::native::{Frame, Handle};
-pub use crate::window::{App, Context, LeafWidget, Managed, RootWidget, Sender, TickChildren, Widget};
+pub use crate::window::{App, AutoLifecycle, Context, LeafWidget, Managed, RootWidget, Sender, Widget};
 pub use egelm_macros::Widget;
 pub use egui::{self, Align, Color32, Image, Label, Layout, Modal, RichText, ScrollArea, TextBuffer, TextEdit, TextStyle, TextWrapMode, ViewportBuilder};
 
-#[cfg(all(feature = "android", target_os = "android"))]
+#[cfg(android)]
 pub use egui_winit::winit::platform::android::activity::{AndroidApp, WindowManagerFlags};

@@ -51,7 +51,7 @@ missing_docs = "warn"
 tabs_in_doc_comments = "allow"
 
 [features]
-default = ["ctrlc", "emoji"]
+default = ["ctrlc", "emoji", "accesskit"]
 ctrlc = ["dep:ctrlc"]
 emoji = ["dep:emojis"]
 glow = ["dep:egui_glow", "dep:glutin", "dep:glutin-winit"]
@@ -74,6 +74,7 @@ x11 = [
 ]
 android = ["egui-winit/android-native-activity", "wgpu"]
 windows = ["glutin?/wgl", "glutin-winit?/wgl"]
+accesskit = ["egui-winit/accesskit"]
 
 [dependencies]
 egelm-macros = { version = "=0.3.2", path = "./egelm-macros" }
@@ -89,6 +90,7 @@ egui-winit = { version = "0.35.0", default-features = false, features = [
 ] }
 pollster = { version = "0.4.0", optional = true }
 tokio = { version = "1.53.1", features = ["rt"] }
+tokio-util = { version = "0.7.19" }
 crossbeam-channel = "0.5.16"
 thiserror = "2.0.19"
 
@@ -97,6 +99,9 @@ ctrlc = { version = "3.5.2", optional = true }
 egui_glow = { version = "0.35.0", features = ["winit"], optional = true }
 glutin = { version = "0.32.3", default-features = false, optional = true }
 glutin-winit = { version = "0.5.0", default-features = false, optional = true }
+
+[build-dependencies]
+cfg_aliases = "0.2.1"
 
 [dev-dependencies]
 tokio = { version = "1.53.1", features = [
