@@ -1,3 +1,7 @@
+## [0.4.1] - 2026-07-26
+
+- Fix docs.rs
+
 ## [0.4.0] - 2026-07-26
 
 - Add widget lifecycle and shutdown hooks
