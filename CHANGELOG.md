@@ -1,3 +1,12 @@
+## [0.4.0] - 2026-07-26
+
+- Add widget lifecycle and shutdown hooks
+- Add cancellable async tasks with result routing
+- Add accessibility support
+- Add wgpu screenshot support
+- Add platform and renderer cfg aliases
+- Exclude `android` example from workflow testing/linting
+
 ## [0.3.2] - 2026-07-25
 
 - Add more examples

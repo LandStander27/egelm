@@ -38,7 +38,7 @@ Add `egelm` and Tokio to your application:
 
 ```toml
 [dependencies]
-egelm = "0.3.2"
+egelm = "0.4.0"
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 ```
 
