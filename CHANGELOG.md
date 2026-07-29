@@ -1,3 +1,8 @@
+## [0.5.0] - 2026-07-29
+
+- Update glow renderer to be more similar to wgpu
+- Unify most renderer code into a shared runner
+
 ## [0.4.1] - 2026-07-26
 
 - Fix docs.rs
