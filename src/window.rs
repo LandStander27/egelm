@@ -296,10 +296,16 @@ impl<T: LeafWidget> Widget for T {
 /// Implement this trait to customize window closing, error presentation, and
 /// one-time rendering setup.
 pub trait RootWidget: Widget + 'static {
-	/// Handles a native request to close the window.
+	/// Handles a native window close request, such as clicking the title-bar
+	/// close button. You can use this to close the window, but keep the app
+	/// running through a tray icon, for example.
 	///
-	/// The default implementation exits the application. An implementation may
-	/// hide the window or ask for confirmation instead.
+	/// This callback is only invoked for a native close request. Calling
+	/// [`Handle::exit`]—including as `frame.exit()` through [`Frame`]—exits the
+	/// application directly and does not invoke this method.
+	///
+	/// The default implementation exits the application. Override it to hide
+	/// the window, ask for confirmation, or ignore the request.
 	fn close(&mut self, frame: &mut Frame) {
 		frame.exit();
 	}
@@ -316,14 +322,15 @@ pub trait RootWidget: Widget + 'static {
 		)
 	}
 
-	/// Configures `egui` after a native rendering context is created.
+	/// Configures the shared `egui` context before the native surface is created.
 	///
-	/// The default implementation does nothing. The method may be called again
-	/// when a hidden window is shown and recreated.
+	/// This is called once when the application runner is constructed. The
+	/// context and its configuration persist when a hidden or suspended window
+	/// is recreated. The default implementation does nothing.
 	#[expect(unused_variables)]
 	fn setup(&mut self, ctx: &egui::Context) {}
 
-	/// Set the RGBA clear color for the native window. The default implementation returns a dark gray color.
+	/// Set the RGBA background color for the native window. The default implementation returns a dark gray color.
 	fn clear_color(&self) -> [u8; 4] {
 		[27, 27, 27, 255]
 	}
@@ -696,7 +703,14 @@ impl<T: RootWidget> App<T> {
 		Ok(())
 	}
 
-	/// Exactly the same as [`App::run`](Self::run) but allows the caller to select a specific rendering backend.
+	/// Runs the native event loop with a specific rendering backend.
+	///
+	/// The corresponding `glow` or `wgpu` crate feature must be enabled.
+	///
+	/// # Errors
+	///
+	/// Returns [`Error::RendererUnavailable`] when the selected backend was not
+	/// compiled in. Other errors are the same as [`App::run`](Self::run).
 	#[tracing::instrument(skip(self, renderer, options))]
 	pub fn run_with_backend(self, renderer: crate::native::Renderer, options: ViewportBuilder) -> Result<(), Error> {
 		let event_loop = EventLoop::<crate::native::UserEvent>::with_user_event()
@@ -711,24 +725,24 @@ impl<T: RootWidget> App<T> {
 		self.root.handle.init(proxy.clone());
 
 		tracing::info!(?renderer, "starting application event loop");
-		let mut runner: Box<dyn crate::native::Runner> = match renderer {
+		let backend: Box<dyn crate::native::Backend> = match renderer {
 			#[cfg(glow)]
 			crate::native::Renderer::Glow => {
 				tracing::debug!("initializing glow renderer");
-				self.root.init();
-				Box::new(crate::native::_glow::GlowRunner::new(self.root, self.error_rx, options, proxy.clone()))
+				Box::new(crate::native::_glow::GlowBackend::default())
 			}
 			#[cfg(wgpu)]
 			crate::native::Renderer::Wgpu => {
 				tracing::debug!("initializing wgpu renderer");
-				self.root.init();
-				Box::new(crate::native::_wgpu::WgpuRunner::new(self.root, self.error_rx, options, proxy.clone()))
+				Box::new(crate::native::_wgpu::WgpuBackend::default())
 			}
 			#[cfg(not(glow))]
 			crate::native::Renderer::Glow => return Err(Error::RendererUnavailable("glow")),
 			#[cfg(not(wgpu))]
 			crate::native::Renderer::Wgpu => return Err(Error::RendererUnavailable("wgpu")),
 		};
+		self.root.init();
+		let mut runner = crate::native::Runner::new(self.root, self.error_rx, options, proxy.clone(), backend);
 
 		#[cfg(ctrlc)]
 		if self.ctrlc_handler {

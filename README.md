@@ -17,6 +17,7 @@ example, see [`examples/android`](examples/android).
 
 - [Features](#features)
 - [Installation](#installation)
+- [Rendering backends](#rendering-backends)
 - [Quick start](#quick-start)
 - [How it works](#how-it-works)
 - [AI usage](#ai-usage)
@@ -50,6 +51,15 @@ cargo add egelm tokio --features 'egelm/wayland egelm/wgpu tokio/rt-multi-thread
 
 The default `egelm` features enable Ctrl-C handling and a quick
 emoji lookup. All platforms and renderers are disabled by default, and can be enabled via feature flags.
+
+## Rendering backends
+
+Enable `glow` for OpenGL rendering or `wgpu` for the wgpu renderer. When both
+are enabled, `App::run` prefers Glow. Use `App::run_with_backend` with
+`Renderer::Glow` or `Renderer::Wgpu` to choose explicitly at runtime.
+
+Linux builds must also enable either `wayland` or `x11`. Android uses wgpu
+through the `android` feature.
 
 ## Quick start
 

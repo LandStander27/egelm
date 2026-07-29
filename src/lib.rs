@@ -1,8 +1,9 @@
 //! Build event-driven desktop interfaces with [`egui`].
 //!
 //! `egelm` supplies a small widget lifecycle, typed message routing, window
-//! management, and reusable dialogs on top of `egui` and `winit`. OpenGL is
-//! used by default; the optional `wgpu` feature selects the `wgpu` renderer.
+//! management, and reusable dialogs on top of `egui` and `winit`. Native
+//! rendering is available through the optional `glow` and `wgpu` backends;
+//! at least one renderer and a platform feature must be enabled.
 //!
 //! # Examples
 //!
