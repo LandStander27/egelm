@@ -530,6 +530,18 @@ pub trait AutoLifecycle {
 	fn shutdown_children_auto(&mut self) {}
 }
 
+/// Parameters provided when instantiating a root widget through a factory.
+pub struct FactoryContext<'a, T: Widget> {
+	/// Communication context provided to the root widget.
+	pub ctx: &'a Context<T>,
+	/// Initialized native window handle.
+	pub handle: &'a Handle,
+
+	#[cfg(feature = "storage")]
+	/// Access to persistent data stores for this application.
+	pub storage: &'a Storage,
+}
+
 /// Owns a root widget and runs it in a native event loop.
 ///
 /// Create an application with [`new`](Self::new), or use
@@ -539,15 +551,11 @@ pub struct App<T: RootWidget> {
 	root: Managed<T>,
 	ctrlc_handler: bool,
 	error_rx: crossbeam_channel::Receiver<T::Error>,
+	options: ViewportBuilder,
 }
 
 impl<T: RootWidget> App<T> {
 	/// Creates an application from an existing root widget.
-	///
-	/// # Panics
-	///
-	/// Panics if another `App` has already been constructed in this process.
-	/// `egelm` currently maintains one global root-error channel.
 	///
 	/// # Examples
 	///
@@ -566,31 +574,22 @@ impl<T: RootWidget> App<T> {
 	/// let app = App::new(Root);
 	/// ```
 	pub fn new(root: T) -> Self {
-		// let (tx, rx) = crossbeam_channel::unbounded();
-		// crate::window::ERROR_RX
-		// 	.set(std::sync::Mutex::new(rx))
-		// 	.expect("cannot call App::new twice");
-		// crate::window::ERROR_TX
-		// 	.set(tx)
-		// 	.expect("cannot call App::new twice");
-		// Self {
-		// 	root: Managed::new_root(root),
-		// 	ctrlc_handler: true,
-		// }
-
-		App::new_factory(move |_, _| root)
+		App::new_factory(ViewportBuilder::default(), move |_| root)
 	}
 
-	/// Creates an application with access to its context and window handle.
+	/// Creates an application with specific initial window attributes.
+	pub fn new_with_options(options: ViewportBuilder, root: T) -> Self {
+		App::new_factory(options, move |_| root)
+	}
+
+	/// Computes the root widget inside a provided closure that may fail.
 	///
-	/// The factory can clone either argument into the root widget before it is
-	/// placed in the application.
-	///
-	/// # Panics
-	///
-	/// Panics if another `App` has already been constructed in this process.
-	/// `egelm` currently maintains one global root-error channel.
-	pub fn new_factory<F: FnOnce(&Context<T>, &Handle) -> T>(factory: F) -> Self {
+	/// The closure is passed a [`FactoryContext`] allowing the root widget
+	/// to access window handles or storage options during initialization.
+	pub fn try_new_factory<E, F>(options: ViewportBuilder, factory: F) -> Result<Self, E>
+	where
+		F: FnOnce(FactoryContext<'_, T>) -> Result<T, E>,
+	{
 		let (error_tx, error_rx) = crossbeam_channel::unbounded::<T::Error>();
 
 		let handle = Handle::new();
@@ -618,9 +617,49 @@ impl<T: RootWidget> App<T> {
 			cancellation: CancellationToken::new(),
 		};
 
-		Self {
+		#[cfg(feature = "storage")]
+		let storage = if let Some(app_id) = &options.app_id {
+			#[cfg(any(linux, windows))]
+			'inner: {
+				let cache = dirs::cache_dir()
+					.unwrap_or_else(|| {
+						tracing::warn!("cache directory not found; using system temp directory");
+						std::env::temp_dir()
+					})
+					.join(app_id);
+
+				if let Err(e) = std::fs::create_dir_all(&cache) {
+					tracing::error!(error = %e, "failed to create cache directory; falling back to in-memory storage");
+					break 'inner Storage::default();
+				}
+
+				match crate::storage::file::FileBackend::new(cache.join("storage.ron")) {
+					Err(e) => {
+						tracing::error!(error = %e, "failed to initialize filesystem storage backend; falling back to in-memory storage");
+						Storage::default()
+					}
+					Ok(o) => Storage::new(o),
+				}
+			}
+
+			#[cfg(android)]
+			todo!("android storage backend not implemented yet");
+		} else {
+			tracing::warn!("no app_id provided; using in-memory storage backend");
+			Storage::new(crate::storage::memory::MemoryBackend::default())
+		};
+
+		let factory_ctx = FactoryContext {
+			ctx: &ctx,
+			handle: &handle,
+
+			#[cfg(feature = "storage")]
+			storage: &storage,
+		};
+
+		Ok(Self {
 			root: Managed {
-				widget: factory(&ctx, &handle),
+				widget: factory(factory_ctx)?,
 				rx,
 				ctx,
 				handle,
@@ -628,7 +667,19 @@ impl<T: RootWidget> App<T> {
 			},
 			ctrlc_handler: true,
 			error_rx,
-		}
+			options,
+		})
+	}
+
+	/// Creates an application with access to its context and window handle.
+	///
+	/// The factory can clone either argument into the root widget before it is
+	/// placed in the application.
+	pub fn new_factory<F>(options: ViewportBuilder, factory: F) -> Self
+	where
+		F: FnOnce(FactoryContext<'_, T>) -> T,
+	{
+		Self::try_new_factory(options, |ctx| Ok::<T, ()>(factory(ctx))).unwrap()
 	}
 
 	/// Disables installation of the default Ctrl-C exit handler.
@@ -644,7 +695,7 @@ impl<T: RootWidget> App<T> {
 	/// For more information, see [`App::run`](Self::run).
 	#[cfg(android)]
 	#[tracing::instrument(skip(self, options))]
-	pub fn run_android(self, android_app: AndroidApp, options: ViewportBuilder) -> Result<(), Error> {
+	pub fn run_android(self, android_app: AndroidApp) -> Result<(), Error> {
 		use egui_winit::winit::platform::android::EventLoopBuilderExtAndroid;
 
 		let event_loop = EventLoop::<crate::native::UserEvent>::with_user_event()
@@ -652,7 +703,7 @@ impl<T: RootWidget> App<T> {
 			.build()
 			.map_err(Error::EventLoopBuildFail)?;
 
-		self.run_with_event_loop(event_loop, crate::native::Renderer::Wgpu, options)
+		self.run_with_event_loop(event_loop, crate::native::Renderer::Wgpu, self.options)
 	}
 
 	/// Runs the native application event loop with the default rendering backend
@@ -692,12 +743,12 @@ impl<T: RootWidget> App<T> {
 	/// App::new(Root).run(ViewportBuilder::default().with_title("Hello"))?;
 	/// # Ok::<(), egelm::error::Error>(())
 	/// ```
-	#[tracing::instrument(skip(self, options))]
-	pub fn run(self, options: ViewportBuilder) -> Result<(), Error> {
+	#[tracing::instrument(skip(self))]
+	pub fn run(self) -> Result<(), Error> {
 		#[cfg(feature = "glow")]
-		return self.run_with_backend(crate::native::Renderer::Glow, options);
+		return self.run_with_backend(crate::native::Renderer::Glow);
 		#[cfg(all(not(feature = "glow"), feature = "wgpu"))]
-		return self.run_with_backend(crate::native::Renderer::Wgpu, options);
+		return self.run_with_backend(crate::native::Renderer::Wgpu);
 
 		#[cfg(all(not(wgpu), not(glow)))]
 		Ok(())
@@ -711,16 +762,16 @@ impl<T: RootWidget> App<T> {
 	///
 	/// Returns [`Error::RendererUnavailable`] when the selected backend was not
 	/// compiled in. Other errors are the same as [`App::run`](Self::run).
-	#[tracing::instrument(skip(self, renderer, options))]
-	pub fn run_with_backend(self, renderer: crate::native::Renderer, options: ViewportBuilder) -> Result<(), Error> {
+	#[tracing::instrument(skip(self, renderer))]
+	pub fn run_with_backend(self, renderer: crate::native::Renderer) -> Result<(), Error> {
 		let event_loop = EventLoop::<crate::native::UserEvent>::with_user_event()
 			.build()
 			.map_err(Error::EventLoopBuildFail)?;
-		self.run_with_event_loop(event_loop, renderer, options)
+		self.run_with_event_loop(event_loop, renderer)
 	}
 
-	#[tracing::instrument(skip(self, renderer, event_loop, options))]
-	fn run_with_event_loop(mut self, event_loop: EventLoop<crate::native::UserEvent>, renderer: crate::native::Renderer, options: ViewportBuilder) -> Result<(), Error> {
+	#[tracing::instrument(skip(self, renderer, event_loop))]
+	fn run_with_event_loop(mut self, event_loop: EventLoop<crate::native::UserEvent>, renderer: crate::native::Renderer) -> Result<(), Error> {
 		let proxy = event_loop.create_proxy();
 		self.root.handle.init(proxy.clone());
 
@@ -742,7 +793,7 @@ impl<T: RootWidget> App<T> {
 			crate::native::Renderer::Wgpu => return Err(Error::RendererUnavailable("wgpu")),
 		};
 		self.root.init();
-		let mut runner = crate::native::Runner::new(self.root, self.error_rx, options, proxy.clone(), backend);
+		let mut runner = crate::native::Runner::new(self.root, self.error_rx, self.options, proxy.clone(), backend);
 
 		#[cfg(ctrlc)]
 		if self.ctrlc_handler {

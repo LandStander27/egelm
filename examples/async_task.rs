@@ -62,7 +62,7 @@ impl RootWidget for ExampleApp {}
 
 #[tokio::main]
 async fn main() {
-	App::new(ExampleApp { loading: false, result: None })
-		.run(ViewportBuilder::default().with_title("Async Task Example"))
+	App::new_with_options(ViewportBuilder::default().with_title("Async Task Example"), ExampleApp { loading: false, result: None })
+		.run()
 		.unwrap();
 }

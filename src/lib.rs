@@ -41,6 +41,10 @@ pub mod prelude;
 /// Widget lifecycles, message routing, and application management.
 pub mod window;
 
+#[cfg(feature = "storage")]
+/// Persistent application state and configuration.
+pub mod storage;
+
 /// Reusable widgets supplied by `egelm`.
 pub mod widgets {
 	pub use crate::window::about_dialog::AboutDialog;

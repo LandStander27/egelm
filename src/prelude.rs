@@ -15,6 +15,9 @@
 #[cfg(feature = "emoji")]
 pub use crate::emoji::emoji;
 
+#[cfg(feature = "storage")]
+pub use crate::storage::Storage;
+
 pub(crate) use crate::error::Error;
 pub use crate::native::{Frame, Handle};
 pub use crate::window::{App, AutoLifecycle, Context, LeafWidget, Managed, RootWidget, Sender, Widget};

@@ -37,4 +37,29 @@ pub enum Error {
 	/// The process Ctrl-C handler could not be installed.
 	#[error("could not set ctrlc handler: {0}")]
 	SetSigHandler(#[source] ctrlc::Error),
+
+	#[cfg(feature = "storage")]
+	/// Failed to parse a value from storage.
+	#[error("could not parse value from storage: {0}")]
+	StorageParsing(#[source] ron::error::SpannedError),
+
+	#[cfg(feature = "storage")]
+	/// Failed to serialize a value to storage.
+	#[error("could not serialize value to storage: {0}")]
+	StorageSerialization(#[source] ron::error::Error),
+
+	#[cfg(feature = "storage")]
+	/// Expected UTF-8 encoding but encountered invalid bytes.
+	#[error("invalid utf8: {0}")]
+	ExpectedUtf8(#[source] std::string::FromUtf8Error),
+
+	#[cfg(feature = "storage")]
+	/// An I/O error occurred while writing to storage.
+	#[error("could not perform write: {0}")]
+	WriteFailure(#[source] std::io::Error),
+
+	#[cfg(feature = "storage")]
+	/// An I/O error occurred while reading from storage.
+	#[error("could not perform read: {0}")]
+	ReadFailure(#[source] std::io::Error),
 }

@@ -33,7 +33,5 @@ impl RootWidget for ExampleApp {}
 
 #[tokio::main]
 async fn main() {
-	App::new(ExampleApp::default())
-		.run(ViewportBuilder::default().with_title("Leaf Widget Example"))
-		.unwrap();
+	App::new(ExampleApp::default()).run().unwrap();
 }

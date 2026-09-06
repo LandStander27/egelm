@@ -83,18 +83,18 @@ impl RootWidget for ExampleApp {}
 
 #[tokio::main]
 async fn main() {
-	let app = App::new_factory(|ctx, handle| {
+	let app = App::new_factory(ViewportBuilder::default().with_title("Multiple Children Example"), |ctx| {
 		let output = ctx
+			.ctx
 			.input_sender()
 			.map(|(label, value)| Message::CounterChanged(label, value));
 
 		ExampleApp {
-			first: Managed::new(output.clone(), ctx.error_sender(), handle, Counter { label: "First", value: 0 }),
-			second: Managed::new(output, ctx.error_sender(), handle, Counter { label: "Second", value: 0 }),
+			first: Managed::new(output.clone(), ctx.ctx.error_sender(), ctx.handle, Counter { label: "First", value: 0 }),
+			second: Managed::new(output, ctx.ctx.error_sender(), ctx.handle, Counter { label: "Second", value: 0 }),
 			last_change: None,
 		}
 	});
 
-	app.run(ViewportBuilder::default().with_title("Multiple Children Example"))
-		.unwrap();
+	app.run().unwrap();
 }

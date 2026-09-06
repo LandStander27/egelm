@@ -55,6 +55,7 @@ tabs_in_doc_comments = "allow"
 
 [features]
 default = ["ctrlc", "emoji", "accesskit"]
+storage = ["egui/persistence", "dep:ron", "dep:serde", "dep:dirs"]
 ctrlc = ["dep:ctrlc"]
 emoji = ["dep:emojis"]
 glow = ["dep:egui_glow", "dep:glutin", "dep:glutin-winit"]
@@ -80,31 +81,31 @@ windows = ["glutin?/wgl", "glutin-winit?/wgl"]
 accesskit = ["egui-winit/accesskit"]
 
 [dependencies]
-egelm-macros = { version = "=0.5.0", path = "./egelm-macros" }
+egelm-macros = { version = "=0.5.0", path = "egelm-macros" }
 
 tracing = "0.1.44"
 emojis = { version = "0.9.0", optional = true }
 
-egui = "0.35.0"
-egui-wgpu = { version = "0.35.0", features = ["winit"], optional = true }
-egui-winit = { version = "0.35.0", default-features = false, features = [
+egui = "0.36.1"
+egui-wgpu = { version = "0.36.1", features = ["winit"], optional = true }
+egui-winit = { version = "0.36.1", default-features = false, features = [
 	"clipboard",
 	"links",
 ] }
 pollster = { version = "0.4.0", optional = true }
-tokio = { version = "1.53.1", features = ["rt"] }
-tokio-util = { version = "0.7.19" }
 crossbeam-channel = "0.5.16"
 thiserror = "2.0.19"
+serde = { version = "1.0.229", optional = true }
+ron = { version = "0.12.2", optional = true }
+dirs = { version = "6.0.0", optional = true }
+tokio = { version = "1.53.1", features = ["rt"] }
+tokio-util = { version = "0.7.19" }
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
 ctrlc = { version = "3.5.2", optional = true }
-egui_glow = { version = "0.35.0", features = ["winit"], optional = true }
+egui_glow = { version = "0.36.1", features = ["winit"], optional = true }
 glutin = { version = "0.32.3", default-features = false, optional = true }
 glutin-winit = { version = "0.5.0", default-features = false, optional = true }
-
-[build-dependencies]
-cfg_aliases = "0.2.1"
 
 [dev-dependencies]
 tokio = { version = "1.53.1", features = [
@@ -113,3 +114,7 @@ tokio = { version = "1.53.1", features = [
 	"rt-multi-thread",
 	"time",
 ] }
+tracing-subscriber = { version = "0.3.17" }
+
+[build-dependencies]
+cfg_aliases = "0.2.1"

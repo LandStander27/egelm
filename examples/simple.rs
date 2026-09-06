@@ -81,11 +81,10 @@ impl RootWidget for ExampleApp {}
 
 #[tokio::main] // This is needed for calling Context::spawn
 async fn main() {
-	let app = App::new_factory(|ctx, handle| ExampleApp {
+	let app = App::new_factory(ViewportBuilder::default().with_title("Simple Example"), |ctx| ExampleApp {
 		input: None,
-		input_dialog: Managed::new(ctx.input_sender().map(Message::Confirmed), ctx.error_sender(), handle, InputDialog::default()),
+		input_dialog: Managed::new(ctx.ctx.input_sender().map(Message::Confirmed), ctx.ctx.error_sender(), ctx.handle, InputDialog::default()),
 	});
 
-	app.run(ViewportBuilder::default().with_title("Simple Example"))
-		.unwrap();
+	app.run().unwrap();
 }

@@ -8,7 +8,9 @@
 						"egelm/wayland",
 						"egelm/wgpu",
 						"egelm/glow",
+						"egelm/storage",
 					],
+					// "target": "wasm32-unknown-unknown",
 				},
 
 				// "cargo": {

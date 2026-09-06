@@ -258,7 +258,7 @@ pub(crate) struct RenderFrame<'a> {
 	pub(crate) pixels_per_point: f32,
 	pub(crate) clear_color: [f32; 4],
 	pub(crate) primitives: &'a [egui::ClippedPrimitive],
-	pub(crate) textures_delta: &'a egui::TexturesDelta,
+	pub(crate) textures_delta: &'a mut egui::TexturesDelta,
 	pub(crate) screenshots: Vec<egui::UserData>,
 	#[allow(dead_code)] // Used by synchronous screenshot backends such as Glow.
 	pub(crate) events: &'a mut Vec<egui::Event>,
@@ -316,7 +316,7 @@ impl<T: crate::window::RootWidget> Runner<T> {
 		self.backend
 			.prepare_frame(&mut surfaced.egui_winit.egui_input_mut().events);
 		let raw_input = surfaced.egui_winit.take_egui_input(&window);
-		let output = self.egui_ctx.run_ui(raw_input, |ui| {
+		let mut output = self.egui_ctx.run_ui(raw_input, |ui| {
 			while let Ok(error) = self.error_rx.try_recv() {
 				let (summary, details) = self.root.error(&error);
 				self.error_dialog.emit(summary, details);
@@ -363,7 +363,7 @@ impl<T: crate::window::RootWidget> Runner<T> {
 			pixels_per_point: output.pixels_per_point,
 			clear_color: [color[0] as f32 / 255.0, color[1] as f32 / 255.0, color[2] as f32 / 255.0, color[3] as f32 / 255.0],
 			primitives: &primitives,
-			textures_delta: &output.textures_delta,
+			textures_delta: &mut output.textures_delta,
 			screenshots,
 			events: &mut surfaced.egui_winit.egui_input_mut().events,
 		});

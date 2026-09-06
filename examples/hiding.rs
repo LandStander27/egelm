@@ -44,8 +44,7 @@ impl RootWidget for ExampleApp {}
 
 #[tokio::main]
 async fn main() {
-	let app = App::new(ExampleApp);
+	let app = App::new_with_options(ViewportBuilder::default().with_title("Simple Example"), ExampleApp);
 
-	app.run(ViewportBuilder::default().with_title("Simple Example"))
-		.unwrap();
+	app.run().unwrap();
 }

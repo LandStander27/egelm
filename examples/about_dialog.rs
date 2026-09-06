@@ -45,20 +45,22 @@ impl RootWidget for ExampleApp {
 
 #[tokio::main]
 async fn main() {
-	let app = App::new(ExampleApp {
-		about_dialog: AboutDialog::new("Example app")
-			.description("An example for egelm")
-			.description_long("This is a longer description for this app")
-			.developer("Sam Jones")
-			.version(env!("CARGO_PKG_VERSION"))
-			.issues_url("https://codeberg.org/Land/egelm/issues")
-			.website_url("https://codeberg.org/Land/egelm")
-			.icon_uri("bytes://empty.svg")
-			.license_text(include_str!("../LICENSE"))
-			.license_name("MIT License")
-			.license_year(2026),
-	});
+	let app = App::new_with_options(
+		ViewportBuilder::default().with_title("Simple Example"),
+		ExampleApp {
+			about_dialog: AboutDialog::new("Example app")
+				.description("An example for egelm")
+				.description_long("This is a longer description for this app")
+				.developer("Sam Jones")
+				.version(env!("CARGO_PKG_VERSION"))
+				.issues_url("https://codeberg.org/Land/egelm/issues")
+				.website_url("https://codeberg.org/Land/egelm")
+				.icon_uri("bytes://empty.svg")
+				.license_text(include_str!("../LICENSE"))
+				.license_name("MIT License")
+				.license_year(2026),
+		},
+	);
 
-	app.run(ViewportBuilder::default().with_title("Simple Example"))
-		.unwrap();
+	app.run().unwrap();
 }
