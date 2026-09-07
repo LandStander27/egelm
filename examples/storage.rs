@@ -1,5 +1,7 @@
 //! Demonstrates a small application composed from managed widgets.
 
+#![cfg(feature = "storage")]
+
 use egelm::prelude::*;
 
 #[derive(Debug, Widget)]
