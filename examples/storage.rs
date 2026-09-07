@@ -1,6 +1,6 @@
 //! Demonstrates a small application composed from managed widgets.
 
-#![cfg(feature = "storage")]
+#![cfg_attr(not(feature = "storage"), allow(unused))]
 
 use egelm::prelude::*;
 
@@ -39,6 +39,7 @@ impl RootWidget for ExampleApp {
 	}
 }
 
+#[cfg(feature = "storage")]
 #[tokio::main]
 async fn main() {
 	tracing_subscriber::fmt::init();
@@ -57,4 +58,9 @@ async fn main() {
 	.unwrap();
 
 	app.run().unwrap();
+}
+
+#[cfg(not(feature = "storage"))]
+fn main() {
+	panic!("You must have the `storage` feature enabled for this example.");
 }

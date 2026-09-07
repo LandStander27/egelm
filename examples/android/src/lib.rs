@@ -105,7 +105,7 @@ fn android_main(android_app: AndroidApp) {
 		.unwrap();
 }
 
-#[cfg(all(target_os = "linux", not(target_os = "android")))]
+#[cfg(not(target_os = "android"))]
 fn main() {
 	panic!("This example is only for Android. Please run it on an Android device or emulator.");
 }
