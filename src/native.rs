@@ -283,6 +283,7 @@ pub(crate) struct Runner<T: crate::window::RootWidget> {
 	handle: Handle,
 	error_rx: crossbeam_channel::Receiver<T::Error>,
 
+	#[cfg(feature = "theming")]
 	_themer: Option<crate::theme::ThemeWatcher>,
 }
 
