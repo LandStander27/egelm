@@ -858,7 +858,7 @@ dependencies = [
 
 [[package]]
 name = "egelm"
-version = "0.6.3"
+version = "0.6.4"
 dependencies = [
  "cfg_aliases",
  "crossbeam-channel",
@@ -888,7 +888,7 @@ dependencies = [
 
 [[package]]
 name = "egelm-macros"
-version = "0.6.3"
+version = "0.6.4"
 dependencies = [
  "egelm",
  "proc-macro2",

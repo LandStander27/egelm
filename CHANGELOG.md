@@ -1,3 +1,7 @@
+## [0.6.4] - 2026-09-07
+
+- Fix tests
+
 ## [0.6.3] - 2026-09-07
 
 - Fix testing workflow
