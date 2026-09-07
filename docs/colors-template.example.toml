@@ -1,0 +1,12 @@
+[colors]
+background = "{background}"
+text = "{foreground}"
+text_muted = "{color7}"
+text_disabled = "{color8}"
+
+primary = "{color12}"
+primary_text = "{background}"
+
+success = "{color10}"
+warning = "{color11}"
+error = "{color9}"
