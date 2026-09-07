@@ -41,9 +41,13 @@ pub mod prelude;
 /// Widget lifecycles, message routing, and application management.
 pub mod window;
 
-#[cfg(feature = "storage")]
 /// Persistent application state and configuration.
+#[cfg(feature = "storage")]
 pub mod storage;
+
+/// Theme management and styling.
+#[cfg(feature = "theming")]
+mod theme;
 
 /// Reusable widgets supplied by `egelm`.
 pub mod widgets {

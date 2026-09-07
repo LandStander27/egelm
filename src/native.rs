@@ -282,6 +282,8 @@ pub(crate) struct Runner<T: crate::window::RootWidget> {
 	error_dialog: crate::window::error_dialog::ErrorDialog,
 	handle: Handle,
 	error_rx: crossbeam_channel::Receiver<T::Error>,
+
+	_themer: Option<crate::theme::ThemeWatcher>,
 }
 
 impl<T: crate::window::RootWidget> Runner<T> {
@@ -301,6 +303,10 @@ impl<T: crate::window::RootWidget> Runner<T> {
 			proxy,
 			backend,
 			surfaced: None,
+
+			#[cfg(feature = "theming")]
+			_themer: crate::theme::ThemeWatcher::new(&egui_ctx),
+
 			egui_ctx,
 			error_dialog: crate::window::error_dialog::ErrorDialog::default(),
 			error_rx,
@@ -316,6 +322,7 @@ impl<T: crate::window::RootWidget> Runner<T> {
 		self.backend
 			.prepare_frame(&mut surfaced.egui_winit.egui_input_mut().events);
 		let raw_input = surfaced.egui_winit.take_egui_input(&window);
+
 		let mut output = self.egui_ctx.run_ui(raw_input, |ui| {
 			while let Ok(error) = self.error_rx.try_recv() {
 				let (summary, details) = self.root.error(&error);
@@ -358,10 +365,12 @@ impl<T: crate::window::RootWidget> Runner<T> {
 		let primitives = self
 			.egui_ctx
 			.tessellate(output.shapes, output.pixels_per_point);
-		let color = self.root.clear_color();
 		self.backend.paint(RenderFrame {
 			pixels_per_point: output.pixels_per_point,
-			clear_color: [color[0] as f32 / 255.0, color[1] as f32 / 255.0, color[2] as f32 / 255.0, color[3] as f32 / 255.0],
+			clear_color: {
+				let bg = self.egui_ctx.global_style().visuals.window_fill;
+				[bg.r() as f32 / 255.0, bg.g() as f32 / 255.0, bg.b() as f32 / 255.0, bg.a() as f32 / 255.0]
+			},
 			primitives: &primitives,
 			textures_delta: &mut output.textures_delta,
 			screenshots,
