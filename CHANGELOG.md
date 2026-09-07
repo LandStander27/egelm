@@ -1,3 +1,7 @@
+## [0.6.1] - 2026-09-07
+
+- Fix compiling with theming feature off
+
 ## [0.6.0] - 2026-09-07
 
 - Add storage feature
