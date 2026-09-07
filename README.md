@@ -8,10 +8,10 @@
 `egelm` is a small app framework for building native GUI applications
 in Rust with [`egui`](https://github.com/emilk/egui). It adds a typed,
 message-driven widget lifecycle, child-widget management, asynchronous tasks,
-error routing, and reusable dialogs on top of `egui`.
+error routing, end-user theming, and reusable dialogs on top of `egui`.
 
-Currently, `egelm` supports Linux, Android, and Windows only. For an Android
-example, see [`examples/android`](examples/android).
+Currently, `egelm` mainly supports Linux and Microslop Windows. Android support is experimental, but for an
+example, see [`examples/android`](examples/android). It might work on MacOS, but I have not tested it.
 
 ## Table of contents
 
@@ -32,7 +32,7 @@ example, see [`examples/android`](examples/android).
 - Window hide/show controls and customizable close behavior
 - Root-level error handling with a built-in error dialog
 - Reusable about dialog and emoji helpers
-- Themable via `~/.config/egelm/colors.toml`, useable with tools like [Pywal](https://github.com/eylles/pywal16) (check [`docs/colors-template.example.toml`](docs/colors-template.example.toml) for an example pywal16 template)
+- Themable via `~/.config/egelm/colors.toml`, useable with tools like [Pywal](https://github.com/eylles/pywal16) (see [`docs/colors-template.example.toml`](docs/colors-template.example.toml) for an example pywal16 template)
 - Persistent storage
 
 ## Installation
@@ -51,7 +51,7 @@ Or via `cargo add`:
 cargo add egelm tokio --features 'egelm/wayland egelm/wgpu tokio/rt-multi-thread tokio/macros'
 ```
 
-The default `egelm` features enable Ctrl-C handling and a quick
+The default `egelm` features enable `SIGINT` handling and a quick
 emoji lookup. All platforms and renderers are disabled by default, and can be enabled via feature flags.
 
 ## Rendering backends
@@ -130,7 +130,7 @@ An egelm application is composed of widgets:
   errors, and spawn asynchronous tasks.
 - `Managed<W>` owns a child widget together with its message queue and context.
 
-Deriving `Widget` implements child ticking for all named `Managed<T>` fields:
+Deriving `Widget` implements child ticking for all `Managed<T>` fields:
 
 ```rust
 #[derive(Debug, Widget)]
@@ -144,7 +144,8 @@ compile-time message types.
 
 ## AI usage
 
-AI tools are used only to help create documentation, including this README.
+AI tools are used only to help create documentation, abstract ideas, and how themes should
+look (as I am unfortunutely bad at making things look visually appealing).
 No AI-assisted content is committed without first being read and reviewed by a
 human.
 
