@@ -58,14 +58,7 @@ impl From<Emoji> for String {
 /// # use egelm::prelude::*;
 /// assert_eq!(emoji("rocket").to_string(), "🚀");
 /// assert_eq!(emoji("something_that_does_not_exist").to_string(), "⛔");
-/// ```
-///
-/// ```
-/// # use egelm::prelude::*;
-/// # egelm::window::run_test(|ui| {
-/// ui.label(format!("rocket emoji: {}", emoji("rocket")));
-/// # })?;
-/// # Ok::<(), egelm::error::Error>(())
+/// assert_eq!(format!("rocket emoji: {}", emoji("rocket")), "rocket emoji: 🚀");
 /// ```
 pub fn emoji(name: impl AsRef<str> + std::fmt::Display) -> Emoji {
 	match emojis::get_by_shortcode(name.as_ref()).map(|x| x.into()) {

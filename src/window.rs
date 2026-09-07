@@ -740,7 +740,7 @@ impl<T: RootWidget> App<T> {
 	/// }
 	/// impl RootWidget for Root {}
 	///
-	/// App::new(Root).run(ViewportBuilder::default().with_title("Hello"))?;
+	/// App::new(Root).run()?;
 	/// # Ok::<(), egelm::error::Error>(())
 	/// ```
 	#[tracing::instrument(skip(self))]
@@ -814,20 +814,6 @@ impl<T: RootWidget> App<T> {
 			.run_app(&mut runner)
 			.map_err(Error::EventLoopFail)
 	}
-}
-
-#[doc(hidden)]
-pub fn run_test<F: Fn(&mut egui::Ui)>(func: F) -> Result<(), Error> {
-	let ctx = egui::Context::default();
-
-	let output = ctx.run_ui(egui::RawInput::default(), |ui| {
-		func(ui);
-	});
-
-	assert!(!output.textures_delta.set.is_empty());
-	assert!(!output.shapes.is_empty());
-
-	Ok(())
 }
 
 #[cfg(test)]

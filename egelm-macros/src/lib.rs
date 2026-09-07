@@ -64,8 +64,8 @@ use syn::{Data, DeriveInput, Fields, GenericArgument, PathArguments, Type, parse
 ///
 /// impl RootWidget for Parent {}
 ///
-/// let app = App::new_factory(|ctx, handle| Parent {
-///     child: Managed::new(None, ctx.error_sender(), handle, Child),
+/// let app = App::new_factory(Default::default(), |ctx| Parent {
+///     child: Managed::new(None, ctx.ctx.error_sender(), ctx.handle, Child),
 /// });
 /// ```
 #[proc_macro_derive(Widget)]
