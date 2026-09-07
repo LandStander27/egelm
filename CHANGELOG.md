@@ -1,3 +1,11 @@
+## [0.6.0] - 2026-09-07
+
+- Add storage feature
+- Implement FileBackend storage via RON and MemoryBackend as a fallback
+- Fix window being blank with glow after showing the window
+- Add theming
+- Add egui demo as an example
+
 ## [0.5.0] - 2026-07-29
 
 - Update glow renderer to be more similar to wgpu
