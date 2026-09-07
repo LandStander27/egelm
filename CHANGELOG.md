@@ -1,3 +1,7 @@
+## [0.6.2] - 2026-09-07
+
+- Fix testing workflow
+
 ## [0.6.1] - 2026-09-07
 
 - Fix compiling with theming feature off
