@@ -1,6 +1,7 @@
-## [0.6.5] - 2026-09-08
+## [0.6.6] - 2026-09-08
 
 - Increase text visibility for some themes
+- Make error dialog shrink when the window is too small
 
 ## [0.6.4] - 2026-09-07
 
