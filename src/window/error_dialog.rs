@@ -22,31 +22,40 @@ impl ErrorDialog {
 }
 
 impl LeafWidget for ErrorDialog {
-	fn render(&mut self, ui: &mut egui::Ui, _frame: &mut Frame) {
+	fn render(&mut self, ui: &mut egui::Ui, frame: &mut Frame) {
+		let size = frame.winit_window().inner_size();
+		let (w, h) = (size.width, size.height);
+
 		if self.errors.is_empty() {
 			return;
 		}
 
 		egui::Modal::new(egui::Id::new("error_dialog")).show(ui, |ui| {
-			ui.set_width(460.0);
-			ui.set_max_height(520.0);
+			let max_width = (w - 48).clamp(160, 460);
+			let max_height = (h - 48).clamp(120, 520);
+
+			ui.set_max_width(max_width as f32);
+			ui.set_max_height(max_height as f32);
 
 			ui.vertical_centered(|ui| {
-				ui.add_space(12.0);
-				ui.add(
-					Label::new(
-						RichText::new(
-							#[cfg(feature = "emoji")]
-							emoji("warning"),
-							#[cfg(not(feature = "emoji"))]
-							"⚠",
+				if max_height == 520 {
+					ui.add_space(12.0);
+					ui.add(
+						Label::new(
+							RichText::new(
+								#[cfg(feature = "emoji")]
+								emoji("warning"),
+								#[cfg(not(feature = "emoji"))]
+								"⚠",
+							)
+							.size(40.0)
+							.color(Color32::from_rgb(0xe0, 0x1b, 0x24)),
 						)
-						.size(40.0)
-						.color(Color32::from_rgb(0xe0, 0x1b, 0x24)),
-					)
-					.selectable(false),
-				);
-				ui.add_space(8.0);
+						.selectable(false),
+					);
+					ui.add_space(8.0);
+				}
+
 				ui.label(RichText::new("An error occurred").size(18.0).strong());
 				ui.label(
 					RichText::new(if self.errors.len() > 1 {
@@ -60,47 +69,51 @@ impl LeafWidget for ErrorDialog {
 			});
 
 			ui.separator();
-			ui.add_space(10.0);
+			// ui.add_space(10.0);
 
-			let summary = self
-				.errors
-				.front()
-				.map(|e| e.summary.as_str())
-				.unwrap_or_default();
-
-			egui::Frame::new()
-				.fill(ui.visuals().extreme_bg_color)
-				.corner_radius(8)
-				.inner_margin(12)
+			ScrollArea::vertical()
+				.auto_shrink([false, true])
 				.show(ui, |ui| {
-					ui.label(RichText::new(summary).monospace().size(12.5));
-				});
+					let summary = self
+						.errors
+						.front()
+						.map(|e| e.summary.as_str())
+						.unwrap_or_default();
 
-			ui.add_space(10.0);
-
-			if let Some(details) = self.errors.front()
-				&& let Some(details) = &details.details
-			{
-				ui.collapsing("Details", |ui| {
 					egui::Frame::new()
 						.fill(ui.visuals().extreme_bg_color)
 						.corner_radius(8)
-						.inner_margin(10)
+						.inner_margin(12)
 						.show(ui, |ui| {
-							ScrollArea::both().show(ui, |ui| {
-								ui.add(
-									Label::new(RichText::new(details).monospace())
-										.wrap_mode(TextWrapMode::Wrap)
-										.selectable(false),
-								);
-							})
+							ui.label(RichText::new(summary).monospace().size(12.5));
 						});
 
-					ui.add_space(6.0);
-				});
+					// ui.add_space(10.0);
 
-				ui.separator();
-			}
+					if let Some(details) = self.errors.front()
+						&& let Some(details) = &details.details
+					{
+						ui.collapsing("Details", |ui| {
+							egui::Frame::new()
+								.fill(ui.visuals().extreme_bg_color)
+								.corner_radius(8)
+								.inner_margin(10)
+								.show(ui, |ui| {
+									ScrollArea::both().show(ui, |ui| {
+										ui.add(
+											Label::new(RichText::new(details).monospace())
+												.wrap_mode(TextWrapMode::Wrap)
+												.selectable(false),
+										);
+									})
+								});
+
+							ui.add_space(6.0);
+						});
+
+						ui.separator();
+					}
+				});
 
 			ui.with_layout(Layout::right_to_left(Align::Max), |ui| {
 				if ui
