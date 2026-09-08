@@ -26,7 +26,6 @@ impl Colors {
 
 		let background = self.background;
 
-		// Return to a subtle, modern flat look without excessive lighting jumps
 		let surface = background.lighten(0.05);
 		let surface_variant = background.lighten(0.10);
 		let border = background.lighten(0.12);
@@ -35,40 +34,35 @@ impl Colors {
 		let surface_color = surface.color();
 		let surface_variant_color = surface_variant.color();
 		let border_color = border.color();
-		let selection_color = self.primary.color();
-
 		let text = self.text.color();
-		let primary = self.primary.color();
-		let primary_text = self.primary_text.color();
 		let text_muted = self.text_muted.color();
+
+		// If primary is light (lightness > 0.55), darken it for button fills
+		// so light text (#f9d5c7) always maintains high contrast (>4.5:1)
+		let (_, _, primary_lightness) = self.primary.rgb_to_hsl();
+		let active_bg = if primary_lightness > 0.50 {
+			self.primary.darken(primary_lightness - 0.35)
+		} else {
+			self.primary
+		};
 
 		// General
 		visuals.panel_fill = background_color;
 		visuals.window_fill = background_color;
 		visuals.window_stroke = Stroke::new(1.0, border_color);
-
-		// Ensure different background roles are mapped uniquely so widgets don't accidentally blend into frames
 		visuals.faint_bg_color = background.lighten(0.02).color();
 		visuals.extreme_bg_color = background.darken(0.03).color();
 
-		// This sets standard text color (RichText::new) to our regular text mapping
-		visuals.override_text_color = Some(text);
-
 		// Selection
-		visuals.selection.bg_fill = selection_color;
-		// Thicken the geometric selection stroke from 1.0 to 2.0 so toggle switch thumbs, checkboxes,
-		// and active rings clearly pop against their backgrounds! (Egui's demo toggle switch draws
-		// its interior with `selection.bg_fill` identically to the track behind it, relying purely on THIS
-		// stroke to separate the thumb from the track).
-		visuals.selection.stroke = Stroke::new(2.0, primary_text);
+		visuals.selection.bg_fill = active_bg.color();
+		visuals.selection.stroke = Stroke::new(2.0, text);
 
 		// Non-interactive
-		// NOTE: egui derives `visuals.weak_text_color()` (used for RichText::weak()) from `noninteractive.fg_stroke.color`!
 		visuals.widgets.noninteractive = WidgetVisuals {
 			bg_fill: background_color,
 			weak_bg_fill: background_color,
 			bg_stroke: Stroke::new(1.0, border_color),
-			fg_stroke: Stroke::new(1.0, text_muted), // Provides the explicit muted text color
+			fg_stroke: Stroke::new(1.0, text_muted),
 			corner_radius: 6.into(),
 			expansion: 0.0,
 		};
@@ -77,7 +71,7 @@ impl Colors {
 		visuals.widgets.inactive = WidgetVisuals {
 			bg_fill: surface_color,
 			weak_bg_fill: surface_color,
-			bg_stroke: Stroke::NONE, // Revert to borderless flat look
+			bg_stroke: Stroke::NONE,
 			fg_stroke: Stroke::new(1.0, text),
 			corner_radius: 6.into(),
 			expansion: 0.0,
@@ -87,22 +81,18 @@ impl Colors {
 		visuals.widgets.hovered = WidgetVisuals {
 			bg_fill: surface_variant_color,
 			weak_bg_fill: surface_variant_color,
-			bg_stroke: Stroke::new(1.0, border.lighten(0.05).color()), // Only show border on hover
+			bg_stroke: Stroke::new(1.0, border.lighten(0.05).color()),
 			fg_stroke: Stroke::new(1.0, text),
 			corner_radius: 6.into(),
 			expansion: 1.0,
 		};
 
-		// Pressed widgets
-		// NOTE: egui uniquely maps `visuals.strong_text_color()` directly to `visuals.widgets.active.fg_stroke.color`!
-		// Because we're in a dark theme, if we set this to `primary_text` (which is often dark to contrast with bright buttons),
-		// it makes `RichText::strong()` effectively invisible on the dark window panel!
-		// To fix this, we map it to a brightened version of the normal text color so strong text always pops.
+		// Pressed / Toggled widgets
 		visuals.widgets.active = WidgetVisuals {
-			bg_fill: primary,
-			weak_bg_fill: primary,
+			bg_fill: active_bg.color(),
+			weak_bg_fill: active_bg.color(),
 			bg_stroke: Stroke::NONE,
-			fg_stroke: Stroke::new(1.0, self.text.lighten(0.20).color()),
+			fg_stroke: Stroke::new(1.0, text),
 			corner_radius: 6.into(),
 			expansion: 0.0,
 		};
