@@ -1,3 +1,7 @@
+## [0.6.5] - 2026-09-08
+
+- Increase text visibility for some themes
+
 ## [0.6.4] - 2026-09-07
 
 - Fix tests
