@@ -1,3 +1,7 @@
+## [0.6.7] - 2026-09-09
+
+- Fix debug build label on some app layouts
+
 ## [0.6.6] - 2026-09-08
 
 - Increase text visibility for some themes
