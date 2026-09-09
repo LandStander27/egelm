@@ -333,18 +333,17 @@ impl<T: crate::window::RootWidget> Runner<T> {
 			self.root.render(ui, &mut surfaced.frame);
 
 			#[cfg(debug_assertions)]
-			ui.with_layout(egui::Layout::bottom_up(egui::Align::Min), |ui| {
-				ui.add_space(12.0);
-				ui.with_layout(egui::Layout::left_to_right(egui::Align::Max), |ui| {
-					ui.add_space(12.0);
+			egui::Area::new("debug_build".into())
+				.anchor(egui::Align2::LEFT_BOTTOM, egui::vec2(12.0, -12.0))
+				.order(egui::Order::Foreground)
+				.show(ui.ctx(), |ui| {
 					ui.label(
 						egui::RichText::new("⚠ Debug build ⚠")
 							.small()
 							.color(ui.visuals().warn_fg_color),
 					)
 					.on_hover_text("This is a debug build. Expect bugs.");
-				})
-			});
+				});
 
 			self.error_dialog.render(ui, &mut surfaced.frame);
 		});
