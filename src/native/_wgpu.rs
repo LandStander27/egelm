@@ -6,8 +6,17 @@ use crate::prelude::*;
 use std::num::NonZeroU32;
 use std::sync::Arc;
 
+use egui_wgpu::{WgpuSetup, WgpuSetupCreateNew};
 use egui_winit::winit;
 use winit::event_loop::ActiveEventLoop;
+
+fn get_gpu() -> egui_wgpu::wgpu::PowerPreference {
+	if let Some(pref) = egui_wgpu::wgpu::PowerPreference::from_env() {
+		return pref;
+	}
+
+	egui_wgpu::wgpu::PowerPreference::LowPower
+}
 
 #[derive(Default)]
 pub(crate) struct WgpuBackend {
@@ -53,15 +62,31 @@ impl Backend for WgpuBackend {
 		);
 		egui_winit::apply_viewport_builder_to_window(egui_ctx, &window, viewport_builder);
 
+		let mut create_new = WgpuSetupCreateNew::without_display_handle();
+		create_new.power_preference = get_gpu();
+		#[cfg(linux)]
+		{
+			create_new.instance_descriptor.backends = egui_wgpu::wgpu::Backends::VULKAN;
+		}
+
 		let painter = self.painter.get_or_insert_with(|| {
 			pollster::block_on(egui_wgpu::winit::Painter::new(
 				egui_ctx.clone(),
-				egui_wgpu::WgpuConfiguration::default(),
+				egui_wgpu::WgpuConfiguration {
+					wgpu_setup: WgpuSetup::CreateNew(create_new),
+					..Default::default()
+				},
 				viewport_builder.transparent.unwrap_or(false),
 				egui_wgpu::RendererOptions::default(),
 			))
 		});
 		pollster::block_on(painter.set_window(egui::ViewportId::ROOT, Some(window.clone()))).expect("could not initialize wgpu surface");
+
+		if let Some(state) = painter.render_state() {
+			let info = state.adapter.get_info();
+			tracing::info!("wgpu is rendering on: {} ({:?})", info.name, info.device_type);
+		}
+
 		self.surface = Some(WgpuSurface { window });
 	}
 
