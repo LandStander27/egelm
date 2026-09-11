@@ -27,6 +27,12 @@ impl StorageBackend for MemoryBackend {
 		Ok(())
 	}
 
+	fn clear(&self) -> Result<(), Error> {
+		let mut values = self.values.write().unwrap();
+		values.clear();
+		Ok(())
+	}
+
 	fn flush(&self) -> Result<(), Error> {
 		Ok(())
 	}

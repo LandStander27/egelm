@@ -13,6 +13,8 @@ pub trait StorageBackend: std::fmt::Debug {
 	fn set(&self, name: &str, data: Vec<u8>) -> Result<(), Error>;
 	/// Removes the stored value under the given key.
 	fn remove(&self, name: &str) -> Result<(), Error>;
+	/// Clears all data.
+	fn clear(&self) -> Result<(), Error>;
 	/// Flushes all pending changes to the persistent storage immediately.
 	fn flush(&self) -> Result<(), Error>;
 }
@@ -56,6 +58,11 @@ impl Storage {
 	/// Manually flushes all pending storage operations to their persistent backend.
 	pub fn flush(&self) -> Result<(), Error> {
 		self.backend.flush()
+	}
+
+	/// Clears all data.
+	pub fn clear(&self) -> Result<(), Error> {
+		self.backend.clear()
 	}
 }
 

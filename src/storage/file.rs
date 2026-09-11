@@ -51,6 +51,12 @@ impl StorageBackend for FileBackend {
 		Ok(())
 	}
 
+	fn clear(&self) -> Result<(), Error> {
+		let mut file = self.lock.write().unwrap();
+		file.values.clear();
+		Ok(())
+	}
+
 	fn flush(&self) -> Result<(), Error> {
 		let file = self.lock.read().unwrap();
 		let raw = ron::ser::to_string(&*file).map_err(Error::StorageSerialization)?;
