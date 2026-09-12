@@ -4,12 +4,14 @@
 
 use egelm::prelude::*;
 
+#[cfg(feature = "storage")]
 #[derive(Debug, Widget)]
 struct ExampleApp {
 	storage: Storage,
 	input: String,
 }
 
+#[cfg(feature = "storage")]
 impl Widget for ExampleApp {
 	type Message = ();
 	type Error = String;
@@ -33,6 +35,7 @@ impl Widget for ExampleApp {
 	}
 }
 
+#[cfg(feature = "storage")]
 impl RootWidget for ExampleApp {
 	fn error(&mut self, err: &Self::Error) -> (String, Option<String>) {
 		(err.clone(), None)
