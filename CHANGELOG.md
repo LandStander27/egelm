@@ -1,3 +1,10 @@
+## [0.7.0] - 2026-09-14
+
+- Add clear() to storage
+- More auto ticking types with derive macro
+- Add builtin toasts
+- Add toasting example
+
 ## [0.6.8] - 2026-09-10
 
 - Use igpu by default on wgpu
