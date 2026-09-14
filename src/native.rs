@@ -282,6 +282,7 @@ pub(crate) struct Runner<T: crate::window::RootWidget> {
 	error_dialog: crate::window::error_dialog::ErrorDialog,
 	handle: Handle,
 	error_rx: crossbeam_channel::Receiver<T::Error>,
+	toasts: crate::window::toast::Toasts,
 
 	#[cfg(feature = "theming")]
 	_themer: Option<crate::theme::ThemeWatcher>,
@@ -311,6 +312,8 @@ impl<T: crate::window::RootWidget> Runner<T> {
 			egui_ctx,
 			error_dialog: crate::window::error_dialog::ErrorDialog::default(),
 			error_rx,
+
+			toasts: crate::window::toast::Toasts::new(),
 		}
 	}
 
@@ -323,6 +326,10 @@ impl<T: crate::window::RootWidget> Runner<T> {
 		self.backend
 			.prepare_frame(&mut surfaced.egui_winit.egui_input_mut().events);
 		let raw_input = surfaced.egui_winit.take_egui_input(&window);
+
+		for toast in crate::window::toast::iter_toasts() {
+			self.toasts.add(toast);
+		}
 
 		let mut output = self.egui_ctx.run_ui(raw_input, |ui| {
 			while let Ok(error) = self.error_rx.try_recv() {
@@ -346,6 +353,7 @@ impl<T: crate::window::RootWidget> Runner<T> {
 				});
 
 			self.error_dialog.render(ui, &mut surfaced.frame);
+			self.toasts.render(ui, &mut surfaced.frame);
 		});
 
 		let mut screenshots = Vec::new();

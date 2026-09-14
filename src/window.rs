@@ -33,7 +33,11 @@ use crate::prelude::*;
 
 /// A reusable modal dialog containing application and license information.
 pub mod about_dialog;
+
 pub(crate) mod error_dialog;
+
+/// In-app floating toast notifications.
+pub mod toast;
 
 /// A cloneable callback for delivering typed widget messages.
 ///
@@ -78,6 +82,7 @@ pub struct Context<W: Widget> {
 	input: Sender<W::Message>,
 	error: Sender<W::Error>,
 	output: Option<Sender<W::Output>>,
+	handle: Handle,
 	cancellation: CancellationToken,
 }
 
@@ -87,6 +92,7 @@ impl<W: Widget> Clone for Context<W> {
 			error: self.error.clone(),
 			input: self.input.clone(),
 			output: self.output.clone(),
+			handle: self.handle.clone(),
 			cancellation: self.cancellation.clone(),
 		}
 	}
@@ -154,6 +160,44 @@ impl<W: Widget + 'static> Context<W> {
 	/// Routes an error toward the root widget's error handler.
 	pub fn error(&self, err: W::Error) {
 		self.error.emit(err);
+	}
+
+	/// Enqueues an in-app floating toast notification and requests a window repaint.
+	///
+	/// The toast will be displayed in a non-intrusive floating overlay above the
+	/// application interface and automatically dismisses after its configured duration
+	/// unless made sticky.
+	///
+	/// Any interactive action callbacks configured on the [`Toast`] will receive a clone
+	/// of this [`Context`] when clicked.
+	///
+	/// # Examples
+	///
+	/// ```ignore
+	/// use std::time::Duration;
+	/// use egelm::window::toast::Toast;
+	///
+	/// ctx.toast(
+	///     Toast::new("Settings updated")
+	///         .success()
+	///         .body("Your preferences have been saved.")
+	///         .duration(Duration::from_secs(4)),
+	/// );
+	/// ```
+	///
+	/// Toasts can also include interactive action callbacks:
+	///
+	/// ```ignore
+	/// ctx.toast(
+	///     Toast::new("Failed to connect to server")
+	///         .error()
+	///         .body("Check your internet connection.")
+	///         .action("Retry", |ctx| ctx.emit(Message::RetryConnect)),
+	/// );
+	/// ```
+	pub fn toast(&self, toast: toast::Toast<W>) {
+		toast::add_toast(toast.into_active(self));
+		self.handle.request_repaint();
 	}
 
 	/// Returns a cloneable sender for errors from this widget.
@@ -388,6 +432,7 @@ impl<T: Widget + 'static> Managed<T> {
 				output: output.into(),
 				error,
 				cancellation: CancellationToken::new(),
+				handle: handle.clone(),
 			},
 			handle: handle.clone(),
 			initialized: false,
@@ -615,6 +660,7 @@ impl<T: RootWidget> App<T> {
 				}
 			}),
 			cancellation: CancellationToken::new(),
+			handle: handle.clone(),
 		};
 
 		#[cfg(feature = "storage")]

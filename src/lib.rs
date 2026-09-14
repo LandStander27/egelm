@@ -52,4 +52,5 @@ mod theme;
 /// Reusable widgets supplied by `egelm`.
 pub mod widgets {
 	pub use crate::window::about_dialog::AboutDialog;
+	pub use crate::window::toast::Toast;
 }
