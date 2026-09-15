@@ -84,6 +84,9 @@ pub struct Context<W: Widget> {
 	output: Option<Sender<W::Output>>,
 	handle: Handle,
 	cancellation: CancellationToken,
+
+	#[cfg(feature = "storage")]
+	storage: Storage,
 }
 
 impl<W: Widget> Clone for Context<W> {
@@ -94,6 +97,7 @@ impl<W: Widget> Clone for Context<W> {
 			output: self.output.clone(),
 			handle: self.handle.clone(),
 			cancellation: self.cancellation.clone(),
+			storage: self.storage.clone(),
 		}
 	}
 }
@@ -138,6 +142,25 @@ impl<W: Widget + 'static> Context<W> {
 				Err(err) => ctx.error(err),
 			}
 		});
+	}
+
+	#[inline]
+	/// Returns a cloneable [`Storage`](crate::storage::Storage) reference.
+	pub fn storage(&self) -> &Storage {
+		&self.storage
+	}
+
+	#[inline]
+	/// Returns a cloneable [`Handle`](crate::window::Handle) reference.
+	pub fn handle(&self) -> &Handle {
+		&self.handle
+	}
+
+	/// Wraps a widget with input, output, and error routing.
+	///
+	/// `output` may be `None` for a widget whose output should be discarded.
+	pub fn manage<C: Widget + 'static>(&self, output: impl Into<Option<Sender<C::Output>>>, error: Sender<C::Error>, widget: C) -> Managed<C> {
+		Managed::new(output, error, &self.handle, &self.storage, widget)
 	}
 
 	/// Enqueues a message for this widget and requests a repaint.
@@ -410,13 +433,13 @@ impl<T: Widget> std::ops::DerefMut for Managed<T> {
 }
 
 impl<T: Widget + 'static> Managed<T> {
-	/// Wraps a widget with input, output, and error routing.
-	///
-	/// `output` may be `None` for a widget whose output should be discarded.
-	/// Messages sent through the managed widget's context wake the supplied
-	/// application `handle`. The returned widget is not initialized until
-	/// [`init`](Self::init) is called.
-	pub fn new(output: impl Into<Option<Sender<T::Output>>>, error: Sender<T::Error>, handle: &Handle, widget: T) -> Self {
+	pub(crate) fn new(
+		output: impl Into<Option<Sender<T::Output>>>,
+		error: Sender<T::Error>,
+		handle: &Handle,
+		#[cfg(feature = "storage")] storage: &Storage,
+		widget: T,
+	) -> Self {
 		let (tx, rx) = crossbeam_channel::unbounded();
 		let wake = handle.clone();
 		Self {
@@ -433,6 +456,9 @@ impl<T: Widget + 'static> Managed<T> {
 				error,
 				cancellation: CancellationToken::new(),
 				handle: handle.clone(),
+
+				#[cfg(feature = "storage")]
+				storage: storage.clone(),
 			},
 			handle: handle.clone(),
 			initialized: false,
@@ -633,35 +659,12 @@ impl<T: RootWidget> App<T> {
 	/// to access window handles or storage options during initialization.
 	pub fn try_new_factory<E, F>(options: ViewportBuilder, factory: F) -> Result<Self, E>
 	where
-		F: FnOnce(FactoryContext<'_, T>) -> Result<T, E>,
+		F: FnOnce(&Context<T>) -> Result<T, E>,
 	{
 		let (error_tx, error_rx) = crossbeam_channel::unbounded::<T::Error>();
 
 		let handle = Handle::new();
 		let (tx, rx) = crossbeam_channel::unbounded();
-		let ctx = Context {
-			input: Sender::new({
-				let handle = handle.clone();
-				move |msg| {
-					if let Err(e) = tx.send(msg).map_err(|_| Error::SendingOverChannel) {
-						tracing::warn!(widget = std::any::type_name::<T>(), error = %e, "could not enqueue root widget message");
-					}
-					handle.request_repaint();
-				}
-			}),
-			output: None,
-			error: Sender::new({
-				let handle = handle.clone();
-				move |err| {
-					if let Err(e) = error_tx.send(err).map_err(|_| Error::SendingOverChannel) {
-						tracing::warn!(widget = std::any::type_name::<T>(), error = %e, "could not enqueue root widget error");
-					}
-					handle.request_repaint();
-				}
-			}),
-			cancellation: CancellationToken::new(),
-			handle: handle.clone(),
-		};
 
 		#[cfg(feature = "storage")]
 		let storage = if let Some(app_id) = &options.app_id {
@@ -695,17 +698,42 @@ impl<T: RootWidget> App<T> {
 			Storage::new(crate::storage::memory::MemoryBackend::default())
 		};
 
-		let factory_ctx = FactoryContext {
-			ctx: &ctx,
-			handle: &handle,
-
-			#[cfg(feature = "storage")]
-			storage: &storage,
+		let ctx = Context {
+			input: Sender::new({
+				let handle = handle.clone();
+				move |msg| {
+					if let Err(e) = tx.send(msg).map_err(|_| Error::SendingOverChannel) {
+						tracing::warn!(widget = std::any::type_name::<T>(), error = %e, "could not enqueue root widget message");
+					}
+					handle.request_repaint();
+				}
+			}),
+			output: None,
+			error: Sender::new({
+				let handle = handle.clone();
+				move |err| {
+					if let Err(e) = error_tx.send(err).map_err(|_| Error::SendingOverChannel) {
+						tracing::warn!(widget = std::any::type_name::<T>(), error = %e, "could not enqueue root widget error");
+					}
+					handle.request_repaint();
+				}
+			}),
+			cancellation: CancellationToken::new(),
+			handle: handle.clone(),
+			storage,
 		};
+
+		// let factory_ctx = FactoryContext {
+		// 	ctx: &ctx,
+		// 	handle: &handle,
+
+		// 	#[cfg(feature = "storage")]
+		// 	storage: &storage,
+		// };
 
 		Ok(Self {
 			root: Managed {
-				widget: factory(factory_ctx)?,
+				widget: factory(&ctx)?,
 				rx,
 				ctx,
 				handle,
@@ -723,7 +751,7 @@ impl<T: RootWidget> App<T> {
 	/// placed in the application.
 	pub fn new_factory<F>(options: ViewportBuilder, factory: F) -> Self
 	where
-		F: FnOnce(FactoryContext<'_, T>) -> T,
+		F: FnOnce(&Context<T>) -> T,
 	{
 		Self::try_new_factory(options, |ctx| Ok::<T, ()>(factory(ctx))).unwrap()
 	}
@@ -973,7 +1001,7 @@ mod tests {
 	fn managed(widget: TestWidget) -> (Managed<TestWidget>, crossbeam_channel::Receiver<String>, crossbeam_channel::Receiver<&'static str>) {
 		let (output, output_rx) = sender();
 		let (error, error_rx) = sender();
-		(Managed::new(output, error, &Handle::default(), widget), output_rx, error_rx)
+		(Managed::new(output, error, &Handle::default(), &Storage::default(), widget), output_rx, error_rx)
 	}
 
 	fn test_widget() -> TestWidget {
@@ -989,8 +1017,8 @@ mod tests {
 	fn lifecycle_managed(events: Arc<Mutex<Vec<&'static str>>>) -> Managed<LifecycleParent> {
 		let handle = Handle::default();
 		let (error, _error_rx) = sender();
-		let child = Managed::new(None, error.clone(), &handle, LifecycleChild { events: events.clone() });
-		Managed::new(None, error, &handle, LifecycleParent { child, events })
+		let child = Managed::new(None, error.clone(), &handle, &Storage::default(), LifecycleChild { events: events.clone() });
+		Managed::new(None, error, &handle, &Storage::default(), LifecycleParent { child, events })
 	}
 
 	#[test]

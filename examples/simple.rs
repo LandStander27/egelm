@@ -83,7 +83,7 @@ impl RootWidget for ExampleApp {}
 async fn main() {
 	let app = App::new_factory(ViewportBuilder::default().with_title("Simple Example"), |ctx| ExampleApp {
 		input: None,
-		input_dialog: Managed::new(ctx.ctx.input_sender().map(Message::Confirmed), ctx.ctx.error_sender(), ctx.handle, InputDialog::default()),
+		input_dialog: ctx.manage(ctx.input_sender().map(Message::Confirmed), ctx.error_sender(), InputDialog::default()),
 	});
 
 	app.run().unwrap();

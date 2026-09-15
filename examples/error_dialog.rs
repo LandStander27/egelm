@@ -73,12 +73,10 @@ impl RootWidget for ExampleApp {
 #[tokio::main]
 async fn main() {
 	let app = App::new_factory(ViewportBuilder::default().with_title("Simple Example"), |ctx| ExampleApp {
-		inner: Managed::new(
+		inner: ctx.manage(
 			None,
-			ctx.ctx
-				.error_sender()
+			ctx.error_sender()
 				.map(|s| format!("from inner widget: {s}")),
-			ctx.handle,
 			InnerWidget,
 		),
 	});

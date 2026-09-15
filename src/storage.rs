@@ -6,7 +6,7 @@ pub(crate) mod file;
 pub(crate) mod memory;
 
 /// Abstraction for persisting key-value configuration data.
-pub trait StorageBackend: std::fmt::Debug {
+pub trait StorageBackend: std::fmt::Debug + Send + Sync {
 	/// Retrieves raw bytes stored under the given key.
 	fn get(&self, name: &str) -> Result<Option<Vec<u8>>, Error>;
 	/// Stores raw bytes under the given key.

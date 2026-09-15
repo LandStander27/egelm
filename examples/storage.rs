@@ -7,7 +7,6 @@ use egelm::prelude::*;
 #[cfg(feature = "storage")]
 #[derive(Debug, Widget)]
 struct ExampleApp {
-	storage: Storage,
 	input: String,
 }
 
@@ -26,11 +25,11 @@ impl Widget for ExampleApp {
 		});
 	}
 
-	fn update(&mut self, _msg: Self::Message, _handle: &Handle, _ctx: &Context<Self>) -> Result<(), Self::Error> {
-		self.storage
+	fn update(&mut self, _msg: Self::Message, _handle: &Handle, ctx: &Context<Self>) -> Result<(), Self::Error> {
+		ctx.storage()
 			.set("input", &self.input)
 			.map_err(|e| format!("{e}"))?;
-		self.storage.flush().map_err(|e| format!("{e}"))?;
+		ctx.storage().flush().map_err(|e| format!("{e}"))?;
 		Ok(())
 	}
 }
@@ -53,8 +52,7 @@ async fn main() {
 			.with_app_id("dev.egelm.StorageExample"),
 		|ctx| {
 			Ok::<ExampleApp, egelm::error::Error>(ExampleApp {
-				input: ctx.storage.get("input")?.unwrap_or_default(),
-				storage: ctx.storage.clone(),
+				input: ctx.storage().get("input")?.unwrap_or_default(),
 			})
 		},
 	)
