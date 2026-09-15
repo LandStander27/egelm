@@ -97,6 +97,8 @@ impl<W: Widget> Clone for Context<W> {
 			output: self.output.clone(),
 			handle: self.handle.clone(),
 			cancellation: self.cancellation.clone(),
+
+			#[cfg(feature = "storage")]
 			storage: self.storage.clone(),
 		}
 	}
@@ -144,6 +146,7 @@ impl<W: Widget + 'static> Context<W> {
 		});
 	}
 
+	#[cfg(feature = "storage")]
 	#[inline]
 	/// Returns a cloneable [`Storage`](crate::storage::Storage) reference.
 	pub fn storage(&self) -> &Storage {
@@ -160,7 +163,14 @@ impl<W: Widget + 'static> Context<W> {
 	///
 	/// `output` may be `None` for a widget whose output should be discarded.
 	pub fn manage<C: Widget + 'static>(&self, output: impl Into<Option<Sender<C::Output>>>, error: Sender<C::Error>, widget: C) -> Managed<C> {
-		Managed::new(output, error, &self.handle, &self.storage, widget)
+		Managed::new(
+			output,
+			error,
+			&self.handle,
+			#[cfg(feature = "storage")]
+			&self.storage,
+			widget,
+		)
 	}
 
 	/// Enqueues a message for this widget and requests a repaint.
@@ -720,16 +730,10 @@ impl<T: RootWidget> App<T> {
 			}),
 			cancellation: CancellationToken::new(),
 			handle: handle.clone(),
+
+			#[cfg(feature = "storage")]
 			storage,
 		};
-
-		// let factory_ctx = FactoryContext {
-		// 	ctx: &ctx,
-		// 	handle: &handle,
-
-		// 	#[cfg(feature = "storage")]
-		// 	storage: &storage,
-		// };
 
 		Ok(Self {
 			root: Managed {
@@ -1001,7 +1005,18 @@ mod tests {
 	fn managed(widget: TestWidget) -> (Managed<TestWidget>, crossbeam_channel::Receiver<String>, crossbeam_channel::Receiver<&'static str>) {
 		let (output, output_rx) = sender();
 		let (error, error_rx) = sender();
-		(Managed::new(output, error, &Handle::default(), &Storage::default(), widget), output_rx, error_rx)
+		(
+			Managed::new(
+				output,
+				error,
+				&Handle::default(),
+				#[cfg(feature = "storage")]
+				&Storage::default(),
+				widget,
+			),
+			output_rx,
+			error_rx,
+		)
 	}
 
 	fn test_widget() -> TestWidget {
@@ -1017,8 +1032,22 @@ mod tests {
 	fn lifecycle_managed(events: Arc<Mutex<Vec<&'static str>>>) -> Managed<LifecycleParent> {
 		let handle = Handle::default();
 		let (error, _error_rx) = sender();
-		let child = Managed::new(None, error.clone(), &handle, &Storage::default(), LifecycleChild { events: events.clone() });
-		Managed::new(None, error, &handle, &Storage::default(), LifecycleParent { child, events })
+		let child = Managed::new(
+			None,
+			error.clone(),
+			&handle,
+			#[cfg(feature = "storage")]
+			&Storage::default(),
+			LifecycleChild { events: events.clone() },
+		);
+		Managed::new(
+			None,
+			error,
+			&handle,
+			#[cfg(feature = "storage")]
+			&Storage::default(),
+			LifecycleParent { child, events },
+		)
 	}
 
 	#[test]
