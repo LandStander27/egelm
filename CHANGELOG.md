@@ -1,3 +1,8 @@
+## [0.8.0] - 2026-09-15
+
+- Replace Managed::new with Context::manage
+- Fix tests
+
 ## [0.7.0] - 2026-09-14
 
 - Add clear() to storage
