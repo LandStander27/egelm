@@ -611,18 +611,6 @@ pub trait AutoLifecycle {
 	fn shutdown_children_auto(&mut self) {}
 }
 
-/// Parameters provided when instantiating a root widget through a factory.
-pub struct FactoryContext<'a, T: Widget> {
-	/// Communication context provided to the root widget.
-	pub ctx: &'a Context<T>,
-	/// Initialized native window handle.
-	pub handle: &'a Handle,
-
-	#[cfg(feature = "storage")]
-	/// Access to persistent data stores for this application.
-	pub storage: &'a Storage,
-}
-
 /// Owns a root widget and runs it in a native event loop.
 ///
 /// Create an application with [`new`](Self::new), or use
@@ -665,7 +653,7 @@ impl<T: RootWidget> App<T> {
 
 	/// Computes the root widget inside a provided closure that may fail.
 	///
-	/// The closure is passed a [`FactoryContext`] allowing the root widget
+	/// The closure is passed a [`Context`] allowing the root widget
 	/// to access window handles or storage options during initialization.
 	pub fn try_new_factory<E, F>(options: ViewportBuilder, factory: F) -> Result<Self, E>
 	where
