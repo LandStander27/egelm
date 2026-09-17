@@ -37,7 +37,7 @@ example, see [`examples/android`](examples/android). It might work on MacOS, but
 
 ## Installation
 
-Add `egelm` and Tokio to your application:
+Add `egelm` to your application:
 
 ```toml
 [dependencies]
@@ -47,20 +47,12 @@ egelm = "0.9.0"
 Or via `cargo add`:
 
 ```sh
-cargo add egelm tokio --features 'egelm/wayland egelm/wgpu tokio/rt-multi-thread tokio/macros'
+cargo add egelm --features 'wayland wgpu' # For Wayland on Linux, using Wgpu
+cargo add egelm --features 'wayland glow' # For Wayland on Linux, using OpenGL
+cargo add egelm --features 'x11 wgpu' # For X11 on Linux, using Wgpu
+cargo add egelm --features 'windows wgpu' # For Windows, using Wgpu
+cargo add egelm --features 'android' # For Android, using Wgpu
 ```
-
-The default `egelm` features enable `SIGINT` handling and a quick
-emoji lookup. All platforms and renderers are disabled by default, and can be enabled via feature flags.
-
-## Rendering backends
-
-Enable `glow` for OpenGL rendering or `wgpu` for the wgpu renderer. When both
-are enabled, `App::run` prefers Glow. Use `App::run_with_backend` with
-`Renderer::Glow` or `Renderer::Wgpu` to choose explicitly at runtime.
-
-Linux builds must also enable either `wayland` or `x11`. Android uses wgpu
-through the `android` feature.
 
 ## Quick start
 
