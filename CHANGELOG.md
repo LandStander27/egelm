@@ -1,3 +1,11 @@
+## [0.9.0] - 2026-09-17
+
+- Remove obselete FactoryContext type
+- Re-export tokio::main and update examples
+- Remove the need for Debug on widget and msg types
+- Add ability to cancel spawned tasks
+- Fix deps
+
 ## [0.8.0] - 2026-09-15
 
 - Replace Managed::new with Context::manage

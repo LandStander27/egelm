@@ -41,7 +41,7 @@ Add `egelm` and Tokio to your application:
 
 ```toml
 [dependencies]
-egelm = "0.8.0"
+egelm = "0.9.0"
 ```
 
 Or via `cargo add`:
