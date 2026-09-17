@@ -70,7 +70,7 @@ impl RootWidget for ExampleApp {
 	}
 }
 
-#[tokio::main]
+#[egelm::main]
 async fn main() {
 	let app = App::new_factory(ViewportBuilder::default().with_title("Simple Example"), |ctx| ExampleApp {
 		inner: ctx.manage(

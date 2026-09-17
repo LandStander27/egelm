@@ -60,7 +60,7 @@ impl Widget for ExampleApp {
 
 impl RootWidget for ExampleApp {}
 
-#[tokio::main]
+#[egelm::main]
 async fn main() {
 	App::new_with_options(ViewportBuilder::default().with_title("Async Task Example"), ExampleApp { loading: false, result: None })
 		.run()

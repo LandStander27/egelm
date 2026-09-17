@@ -26,7 +26,7 @@ impl RootWidget for ExampleApp {
 	}
 }
 
-#[tokio::main]
+#[egelm::main]
 async fn main() {
 	App::new(ExampleApp::default()).run().unwrap();
 }

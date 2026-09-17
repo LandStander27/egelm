@@ -43,7 +43,7 @@ impl RootWidget for ExampleApp {
 	}
 }
 
-#[tokio::main]
+#[egelm::main]
 async fn main() {
 	let app = App::new_with_options(
 		ViewportBuilder::default().with_title("Simple Example"),

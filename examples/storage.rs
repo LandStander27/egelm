@@ -42,7 +42,7 @@ impl RootWidget for ExampleApp {
 }
 
 #[cfg(feature = "storage")]
-#[tokio::main]
+#[egelm::main]
 async fn main() {
 	tracing_subscriber::fmt::init();
 

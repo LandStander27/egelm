@@ -79,7 +79,7 @@ impl Widget for ExampleApp {
 
 impl RootWidget for ExampleApp {}
 
-#[tokio::main] // This is needed for calling Context::spawn
+#[egelm::main] // Equivalent to tokio::main
 async fn main() {
 	let app = App::new_factory(ViewportBuilder::default().with_title("Simple Example"), |ctx| ExampleApp {
 		input: None,

@@ -54,3 +54,5 @@ pub mod widgets {
 	pub use crate::window::about_dialog::AboutDialog;
 	pub use crate::window::toast::Toast;
 }
+
+pub use tokio::main;
