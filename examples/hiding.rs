@@ -2,13 +2,12 @@
 
 use egelm::prelude::*;
 
-#[derive(Debug)]
 enum Message {
 	Close,
 	Show,
 }
 
-#[derive(Debug, Widget)]
+#[derive(Widget)]
 struct ExampleApp;
 
 impl Widget for ExampleApp {

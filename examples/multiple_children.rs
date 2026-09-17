@@ -2,12 +2,11 @@
 
 use egelm::prelude::*;
 
-#[derive(Debug)]
 enum CounterMessage {
 	Increment,
 }
 
-#[derive(Debug, Widget)]
+#[derive(Widget)]
 struct Counter {
 	label: &'static str,
 	value: u32,
@@ -39,12 +38,11 @@ impl Widget for Counter {
 	}
 }
 
-#[derive(Debug)]
 enum Message {
 	CounterChanged(&'static str, u32),
 }
 
-#[derive(Debug, Widget)]
+#[derive(Widget)]
 struct ExampleApp {
 	first: Managed<Counter>,
 	second: Managed<Counter>,

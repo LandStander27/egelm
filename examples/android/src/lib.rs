@@ -4,7 +4,7 @@
 
 use egelm::prelude::*;
 
-#[derive(Debug, Widget, Default)]
+#[derive(Widget, Default)]
 struct InputDialog {
 	input: String,
 	open: bool,
@@ -38,13 +38,12 @@ impl Widget for InputDialog {
 	}
 }
 
-#[derive(Debug)]
 enum Message {
 	Confirmed(String),
 	Open,
 }
 
-#[derive(Debug, Widget)]
+#[derive(Widget)]
 struct ExampleApp {
 	input_dialog: Managed<InputDialog>,
 	input: Option<String>,

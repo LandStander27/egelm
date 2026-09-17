@@ -5,7 +5,7 @@
 use egelm::prelude::*;
 
 #[cfg(feature = "storage")]
-#[derive(Debug, Widget)]
+#[derive(Widget)]
 struct ExampleApp {
 	input: String,
 }

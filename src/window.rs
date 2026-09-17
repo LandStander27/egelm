@@ -276,9 +276,9 @@ impl<W: Widget + 'static> Context<W> {
 ///     }
 /// }
 /// ```
-pub trait Widget: AutoLifecycle + std::fmt::Debug + Sized {
+pub trait Widget: AutoLifecycle + Sized {
 	/// Messages consumed by [`update`](Self::update).
-	type Message: Send + std::fmt::Debug + 'static;
+	type Message: Send + 'static;
 	/// Values this widget can send to its parent.
 	type Output: Send + 'static;
 	/// Errors produced while updating or ticking this widget.
@@ -351,7 +351,7 @@ pub trait Widget: AutoLifecycle + std::fmt::Debug + Sized {
 ///     }
 /// }
 /// ```
-pub trait LeafWidget: std::fmt::Debug {
+pub trait LeafWidget {
 	/// Renders the leaf widget into the current `egui` user interface.
 	fn render(&mut self, ui: &mut egui::Ui, frame: &mut Frame);
 }

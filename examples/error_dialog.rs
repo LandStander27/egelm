@@ -2,7 +2,7 @@
 
 use egelm::prelude::*;
 
-#[derive(Debug, Widget)]
+#[derive(Widget)]
 struct InnerWidget;
 
 impl Widget for InnerWidget {
@@ -32,7 +32,7 @@ impl Widget for InnerWidget {
 	}
 }
 
-#[derive(Debug, Widget)]
+#[derive(Widget)]
 struct ExampleApp {
 	inner: Managed<InnerWidget>,
 }

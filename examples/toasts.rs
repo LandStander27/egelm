@@ -3,7 +3,6 @@
 use egelm::prelude::*;
 use egelm::widgets::*;
 
-#[derive(Debug)]
 enum Message {
 	Info,
 	Success,
@@ -11,7 +10,7 @@ enum Message {
 	Error,
 }
 
-#[derive(Debug, Widget)]
+#[derive(Widget)]
 struct ExampleApp;
 
 impl Widget for ExampleApp {

@@ -3,12 +3,11 @@
 use egelm::prelude::*;
 use egelm::widgets::AboutDialog;
 
-#[derive(Debug)]
 enum Message {
 	Open,
 }
 
-#[derive(Debug, Widget)]
+#[derive(Widget)]
 struct ExampleApp {
 	about_dialog: AboutDialog,
 }

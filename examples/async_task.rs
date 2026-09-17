@@ -4,13 +4,12 @@ use std::time::Duration;
 
 use egelm::prelude::*;
 
-#[derive(Debug)]
 enum Message {
 	Load,
 	Loaded(String),
 }
 
-#[derive(Debug, Widget)]
+#[derive(Widget)]
 struct ExampleApp {
 	loading: bool,
 	result: Option<String>,

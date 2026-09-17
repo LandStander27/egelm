@@ -2,7 +2,7 @@
 
 use egelm::prelude::*;
 
-#[derive(Debug, Default)]
+#[derive(Default)]
 struct ClickCounter {
 	count: u32,
 }
@@ -15,7 +15,7 @@ impl LeafWidget for ClickCounter {
 	}
 }
 
-#[derive(Debug, Default)]
+#[derive(Default)]
 struct ExampleApp {
 	counter: ClickCounter,
 }
