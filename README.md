@@ -59,12 +59,11 @@ cargo add egelm --features 'android' # For Android, using Wgpu
 ```rust
 use egelm::prelude::*;
 
-#[derive(Debug)]
 enum Message {
     Increment,
 }
 
-#[derive(Debug, Widget)]
+#[derive(Widget)]
 struct Counter {
     count: u32,
 }
@@ -93,7 +92,7 @@ impl Widget for Counter {
 
 impl RootWidget for Counter {}
 
-#[tokio::main]
+#[egelm::main]
 async fn main() {
     App::new(Counter { count: 0 })
         .run(ViewportBuilder::default().with_title("Counter"))
@@ -112,7 +111,7 @@ cargo run
 An egelm application is composed of widgets:
 
 - `Widget` is the full lifecycle trait. Its `view` method renders UI, while
-  `update` handles typed messages and `tick` performs per-cycle work.
+  `update` handles typed messages and `tick` performs optional per-cycle work.
 - `LeafWidget` is a simpler rendering-only trait for components that do not
   need messages, outputs, or errors.
 - `RootWidget` represents the top-level application and can customize window
@@ -124,7 +123,7 @@ An egelm application is composed of widgets:
 Deriving `Widget` implements child ticking for all `Managed<T>` fields:
 
 ```rust
-#[derive(Debug, Widget)]
+#[derive(Widget)]
 struct Parent {
     child: Managed<Child>,
 }
