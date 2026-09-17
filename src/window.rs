@@ -39,6 +39,30 @@ pub(crate) mod error_dialog;
 /// In-app floating toast notifications.
 pub mod toast;
 
+/// A handle to an asynchronous task spawned by a widget context.
+#[derive(Clone, Debug)]
+pub struct TaskHandle {
+	cancellation: CancellationToken,
+	abort_handle: tokio::task::AbortHandle,
+}
+
+impl TaskHandle {
+	/// Cancels the task.
+	pub fn cancel(&self) {
+		self.cancellation.cancel();
+	}
+
+	/// Checks if the task has been cancelled.
+	pub fn is_cancelled(&self) -> bool {
+		self.cancellation.is_cancelled()
+	}
+
+	/// Checks if the task has finished.
+	pub fn is_finished(&self) -> bool {
+		self.abort_handle.is_finished()
+	}
+}
+
 /// A cloneable callback for delivering typed widget messages.
 ///
 /// Senders are obtained from a [`Context`] and can be moved into callbacks or
@@ -123,10 +147,13 @@ impl<W: Widget + 'static> Context<W> {
 	/// dropped without producing either value when the managed widget shuts
 	/// down.
 	///
+	/// Returns a [`TaskHandle`] that can be used to cancel the task or check
+	/// the status.
+	///
 	/// # Panics
 	///
 	/// Panics if called outside a Tokio runtime.
-	pub fn spawn<F, Fut>(&self, f: F)
+	pub fn spawn<F, Fut>(&self, f: F) -> TaskHandle
 	where
 		F: FnOnce(Context<W>) -> Fut + Send + 'static,
 		Fut: Future<Output = Result<W::Message, W::Error>> + Send + 'static,
@@ -134,16 +161,22 @@ impl<W: Widget + 'static> Context<W> {
 		let ctx = self.clone();
 		let cancellation = self.cancellation.child_token();
 
-		tokio::spawn(async move {
-			let Some(out) = cancellation.run_until_cancelled(f(ctx.clone())).await else {
-				return;
-			};
+		let abort_handle = tokio::spawn({
+			let cancellation = cancellation.clone();
+			async move {
+				let Some(out) = cancellation.run_until_cancelled(f(ctx.clone())).await else {
+					return;
+				};
 
-			match out {
-				Ok(msg) => ctx.emit(msg),
-				Err(err) => ctx.error(err),
+				match out {
+					Ok(msg) => ctx.emit(msg),
+					Err(err) => ctx.error(err),
+				}
 			}
-		});
+		})
+		.abort_handle();
+
+		TaskHandle { cancellation, abort_handle }
 	}
 
 	#[cfg(feature = "storage")]
