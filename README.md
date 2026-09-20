@@ -42,7 +42,7 @@ Add `egelm` to your application:
 
 ```toml
 [dependencies]
-egelm = "0.10.0"
+egelm = "0.11.0"
 ```
 
 Or via `cargo add`:

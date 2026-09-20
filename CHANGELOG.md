@@ -1,3 +1,10 @@
+## [0.11.0] - 2026-09-20
+
+- Fix CHANGELOG.md
+- Add OpenURI portal
+- Add GlobalShortcuts portal
+- Register app with portal on startup
+
 ## [0.10.0] - 2026-09-20
 
 - Add xdg desktop portal integration
