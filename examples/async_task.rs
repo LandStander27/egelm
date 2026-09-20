@@ -1,5 +1,7 @@
 //! Demonstrates running background work and returning its result as a message.
 
+mod common;
+
 use std::time::Duration;
 
 use egelm::prelude::*;
@@ -61,7 +63,10 @@ impl RootWidget for ExampleApp {}
 
 #[egelm::main]
 async fn main() {
+	common::init_tracing();
+
 	App::new_with_options(ViewportBuilder::default().with_title("Async Task Example"), ExampleApp { loading: false, result: None })
 		.run()
+		.await
 		.unwrap();
 }

@@ -873,11 +873,11 @@ impl<T: RootWidget> App<T> {
 	/// # Ok::<(), egelm::error::Error>(())
 	/// ```
 	#[tracing::instrument(skip(self))]
-	pub fn run(self) -> Result<(), Error> {
+	pub async fn run(self) -> Result<(), Error> {
 		#[cfg(feature = "glow")]
-		return self.run_with_backend(crate::native::Renderer::Glow);
+		return self.run_with_backend(crate::native::Renderer::Glow).await;
 		#[cfg(all(not(feature = "glow"), feature = "wgpu"))]
-		return self.run_with_backend(crate::native::Renderer::Wgpu);
+		return self.run_with_backend(crate::native::Renderer::Wgpu).await;
 
 		#[cfg(all(not(wgpu), not(glow)))]
 		Ok(())
@@ -892,7 +892,25 @@ impl<T: RootWidget> App<T> {
 	/// Returns [`Error::RendererUnavailable`] when the selected backend was not
 	/// compiled in. Other errors are the same as [`App::run`](Self::run).
 	#[tracing::instrument(skip(self, renderer))]
-	pub fn run_with_backend(self, renderer: crate::native::Renderer) -> Result<(), Error> {
+	pub async fn run_with_backend(self, renderer: crate::native::Renderer) -> Result<(), Error> {
+		#[cfg(feature = "portal")]
+		if let Some(app_id) = &self.options.app_id {
+			use std::str::FromStr;
+
+			match ashpd::AppID::from_str(app_id) {
+				Ok(id) => {
+					if let Err(e) = ashpd::register_host_app(id).await {
+						tracing::error!("could not register app on XDG Desktop Portal: {e}");
+					} else {
+						tracing::debug!("registered host app with XDG Desktop Portal");
+					}
+				}
+				Err(e) => tracing::error!("app_id is invalid: {e}"),
+			}
+		} else {
+			tracing::warn!("no app_id provided; some XDG portals might not work on some systems");
+		}
+
 		let event_loop = EventLoop::<crate::native::UserEvent>::with_user_event()
 			.build()
 			.map_err(Error::EventLoopBuildFail)?;

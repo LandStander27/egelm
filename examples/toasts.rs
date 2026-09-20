@@ -1,5 +1,7 @@
 //! Demonstrates a small application that shows how toasts work.
 
+mod common;
+
 use egelm::prelude::*;
 use egelm::widgets::*;
 
@@ -61,7 +63,9 @@ impl RootWidget for ExampleApp {}
 
 #[egelm::main]
 async fn main() {
+	common::init_tracing();
+
 	let app = App::new_with_options(ViewportBuilder::default().with_title("Simple Example"), ExampleApp);
 
-	app.run().unwrap();
+	app.run().await.unwrap();
 }

@@ -1,5 +1,7 @@
 //! Demonstrates opening the reusable about dialog.
 
+mod common;
+
 use egelm::prelude::*;
 use egelm::widgets::AboutDialog;
 
@@ -38,12 +40,15 @@ impl Widget for ExampleApp {
 
 impl RootWidget for ExampleApp {
 	fn setup(&mut self, ctx: &egui::Context) {
-		ctx.include_bytes("bytes://empty.svg", &[]);
+		egui_extras::install_image_loaders(ctx);
+		ctx.include_bytes("bytes://blank.svg", br#"<svg height="100" width="100" xmlns="http://www.w3.org/2000/svg"></svg>"#);
 	}
 }
 
 #[egelm::main]
 async fn main() {
+	common::init_tracing();
+
 	let app = App::new_with_options(
 		ViewportBuilder::default().with_title("Simple Example"),
 		ExampleApp {
@@ -54,12 +59,12 @@ async fn main() {
 				.version(env!("CARGO_PKG_VERSION"))
 				.issues_url("https://codeberg.org/Land/egelm/issues")
 				.website_url("https://codeberg.org/Land/egelm")
-				.icon_uri("bytes://empty.svg")
+				.icon_uri("bytes://blank.svg")
 				.license_text(include_str!("../LICENSE"))
 				.license_name("MIT License")
 				.license_year(2026),
 		},
 	);
 
-	app.run().unwrap();
+	app.run().await.unwrap();
 }

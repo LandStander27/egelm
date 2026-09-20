@@ -1,5 +1,7 @@
 //! Demonstrates hiding and restoring the native application window.
 
+mod common;
+
 use egelm::prelude::*;
 
 enum Message {
@@ -43,7 +45,14 @@ impl RootWidget for ExampleApp {}
 
 #[egelm::main]
 async fn main() {
-	let app = App::new_with_options(ViewportBuilder::default().with_title("Simple Example"), ExampleApp);
+	common::init_tracing();
 
-	app.run().unwrap();
+	let app = App::new_with_options(
+		ViewportBuilder::default()
+			.with_title("Simple Example")
+			.with_app_id("dev.egelm.PortalsExample"),
+		ExampleApp,
+	);
+
+	app.run().await.unwrap();
 }

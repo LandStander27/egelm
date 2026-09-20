@@ -1,5 +1,7 @@
 //! Demonstrates routing widget errors to the root error dialog.
 
+mod common;
+
 use egelm::prelude::*;
 
 #[derive(Widget)]
@@ -72,6 +74,8 @@ impl RootWidget for ExampleApp {
 
 #[egelm::main]
 async fn main() {
+	common::init_tracing();
+
 	let app = App::new_factory(ViewportBuilder::default().with_title("Simple Example"), |ctx| ExampleApp {
 		inner: ctx.manage(
 			None,
@@ -81,5 +85,5 @@ async fn main() {
 		),
 	});
 
-	app.run().unwrap();
+	app.run().await.unwrap();
 }

@@ -1,5 +1,7 @@
 //! Demonstrates routing output from multiple managed child widgets.
 
+mod common;
+
 use egelm::prelude::*;
 
 enum CounterMessage {
@@ -81,6 +83,8 @@ impl RootWidget for ExampleApp {}
 
 #[egelm::main]
 async fn main() {
+	common::init_tracing();
+
 	let app = App::new_factory(ViewportBuilder::default().with_title("Multiple Children Example"), |ctx| {
 		let output = ctx
 			.input_sender()
@@ -93,5 +97,5 @@ async fn main() {
 		}
 	});
 
-	app.run().unwrap();
+	app.run().await.unwrap();
 }

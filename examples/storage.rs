@@ -2,6 +2,8 @@
 
 #![cfg_attr(not(feature = "storage"), allow(unused))]
 
+mod common;
+
 use egelm::prelude::*;
 
 #[cfg(feature = "storage")]
@@ -44,7 +46,7 @@ impl RootWidget for ExampleApp {
 #[cfg(feature = "storage")]
 #[egelm::main]
 async fn main() {
-	tracing_subscriber::fmt::init();
+	common::init_tracing();
 
 	let app = App::try_new_factory(
 		ViewportBuilder::default()
@@ -58,7 +60,7 @@ async fn main() {
 	)
 	.unwrap();
 
-	app.run().unwrap();
+	app.run().await.unwrap();
 }
 
 #[cfg(not(feature = "storage"))]

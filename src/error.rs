@@ -58,8 +58,8 @@ pub enum Error {
 	#[error("could not perform write: {0}")]
 	WriteFailure(#[source] std::io::Error),
 
-	#[cfg(feature = "storage")]
-	/// An I/O error occurred while reading from storage.
+	#[cfg(any(feature = "storage", feature = "portal"))]
+	/// An I/O error occurred while reading from disk.
 	#[error("could not perform read: {0}")]
 	ReadFailure(#[source] std::io::Error),
 

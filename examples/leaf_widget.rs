@@ -1,5 +1,7 @@
 //! Demonstrates composing a root application from rendering-only leaf widgets.
 
+mod common;
+
 use egelm::prelude::*;
 
 #[derive(Default)]
@@ -33,5 +35,7 @@ impl RootWidget for ExampleApp {}
 
 #[egelm::main]
 async fn main() {
-	App::new(ExampleApp::default()).run().unwrap();
+	common::init_tracing();
+
+	App::new(ExampleApp::default()).run().await.unwrap();
 }

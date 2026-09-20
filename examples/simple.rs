@@ -1,5 +1,7 @@
 //! Demonstrates a small application composed from managed widgets.
 
+mod common;
+
 use egelm::prelude::*;
 
 #[derive(Widget, Default)]
@@ -80,10 +82,12 @@ impl RootWidget for ExampleApp {}
 
 #[egelm::main] // Equivalent to tokio::main
 async fn main() {
+	common::init_tracing();
+
 	let app = App::new_factory(ViewportBuilder::default().with_title("Simple Example"), |ctx| ExampleApp {
 		input: None,
 		input_dialog: ctx.manage(ctx.input_sender().map(Message::Confirmed), ctx.error_sender(), InputDialog::default()),
 	});
 
-	app.run().unwrap();
+	app.run().await.unwrap();
 }

@@ -1,8 +1,12 @@
 //! Integrations with XDG desktop portals.
 
 mod file_dialog;
+mod open_uri;
+mod shortcuts;
 
 pub use file_dialog::{OpenFile, SaveFile};
+pub use open_uri::OpenURI;
+pub use shortcuts::GlobalShortcuts;
 
 /// An asynchronous request sent to an XDG desktop portal.
 #[async_trait::async_trait]
