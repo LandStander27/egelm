@@ -1,22 +1,40 @@
 ## [0.10.0] - 2026-09-20
 
-- Increase text visibility for some themes
-- Make error dialog shrink when the window is too small
-- Fix debug build label on some app layouts
-- Use igpu by default on wgpu
-- Add clear() to storage
-- More auto ticking types with derive macro
-- Add builtin toasts
-- Add toasting example
-- Replace Managed::new with Context::manage
-- Fix tests
+- Add xdg desktop portal integration
+- Move the `Handle` to the `Context`
+
+## [0.9.0] - 2026-09-17
+
 - Remove obselete FactoryContext type
 - Re-export tokio::main and update examples
 - Remove the need for Debug on widget and msg types
 - Add ability to cancel spawned tasks
 - Fix deps
-- Add xdg desktop portal integration
-- Move the `Handle` to the `Context`
+
+## [0.8.0] - 2026-09-15
+
+- Replace Managed::new with Context::manage
+- Fix tests
+
+## [0.7.0] - 2026-09-14
+
+- Add clear() to storage
+- More auto ticking types with derive macro
+- Add builtin toasts
+- Add toasting example
+
+## [0.6.8] - 2026-09-10
+
+- Use igpu by default on wgpu
+
+## [0.6.7] - 2026-09-09
+
+- Fix debug build label on some app layouts
+
+## [0.6.6] - 2026-09-08
+
+- Increase text visibility for some themes
+- Make error dialog shrink when the window is too small
 
 ## [0.6.4] - 2026-09-07
 
