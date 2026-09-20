@@ -9,6 +9,7 @@
 						"egelm/wgpu",
 						"egelm/glow",
 						"egelm/storage",
+						"egelm/portal",
 					],
 					// "target": "wasm32-unknown-unknown",
 				},

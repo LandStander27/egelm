@@ -27,7 +27,7 @@ impl Widget for ExampleApp {
 		self.about_dialog.render(ui, frame);
 	}
 
-	fn update(&mut self, msg: Self::Message, _handle: &Handle, _ctx: &Context<Self>) -> Result<(), Self::Error> {
+	fn update(&mut self, msg: Self::Message, _ctx: &Context<Self>) -> Result<(), Self::Error> {
 		match msg {
 			Message::Open => self.about_dialog.open(),
 		}

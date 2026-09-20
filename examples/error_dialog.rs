@@ -27,7 +27,7 @@ impl Widget for InnerWidget {
 		});
 	}
 
-	fn update(&mut self, _msg: Self::Message, _handle: &Handle, _ctx: &Context<Self>) -> Result<(), Self::Error> {
+	fn update(&mut self, _msg: Self::Message, _ctx: &Context<Self>) -> Result<(), Self::Error> {
 		Err("Error from update()".to_string())
 	}
 }
@@ -59,7 +59,7 @@ impl Widget for ExampleApp {
 		self.inner.render(ui, frame);
 	}
 
-	fn update(&mut self, _msg: Self::Message, _handle: &Handle, _ctx: &Context<Self>) -> Result<(), Self::Error> {
+	fn update(&mut self, _msg: Self::Message, _ctx: &Context<Self>) -> Result<(), Self::Error> {
 		Err("Error from update()".to_string())
 	}
 }

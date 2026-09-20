@@ -25,7 +25,7 @@ impl Widget for ExampleApp {
 		});
 	}
 
-	fn update(&mut self, _msg: Self::Message, _handle: &Handle, ctx: &Context<Self>) -> Result<(), Self::Error> {
+	fn update(&mut self, _msg: Self::Message, ctx: &Context<Self>) -> Result<(), Self::Error> {
 		ctx.storage()
 			.set("input", &self.input)
 			.map_err(|e| format!("{e}"))?;

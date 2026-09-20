@@ -56,6 +56,12 @@ tabs_in_doc_comments = "allow"
 [features]
 default = ["ctrlc", "emoji", "accesskit", "theming"]
 theming = ["dep:dirs", "dep:serde", "serde/derive", "dep:toml", "dep:notify"]
+portal = [
+	"dep:ashpd",
+	"dep:async-trait",
+	"dep:raw-window-handle",
+	"dep:pollster",
+]
 storage = ["egui/persistence", "dep:ron", "dep:serde", "dep:dirs"]
 ctrlc = ["dep:ctrlc"]
 emoji = ["dep:emojis"]
@@ -69,6 +75,7 @@ wayland = [
 	"glutin-winit?/wayland",
 	"glutin?/egl",
 	"glutin-winit?/egl",
+	"ashpd?/wayland",
 ]
 x11 = [
 	"egui-winit/x11",
@@ -101,12 +108,27 @@ serde = { version = "1.0.229", optional = true }
 ron = { version = "0.12.2", optional = true }
 toml = { version = "0.4.10", optional = true }
 dirs = { version = "6.0.0", optional = true }
-tokio = { version = "1.53.1", features = ["rt", "rt-multi-thread", "macros"] }
+tokio = { version = "1.53.1", features = [
+	"rt",
+	"rt-multi-thread",
+	"macros",
+	"net",
+	"time",
+] }
 tokio-util = { version = "0.7.19" }
+async-trait = { version = "0.1.92", optional = true }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+ashpd = { version = "0.13.13", default-features = false, features = [
+	"raw_handle",
+	"async-io",
+	"file_chooser",
+], optional = true }
+raw-window-handle = { version = "0.6.2", optional = true }
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
 ctrlc = { version = "3.5.2", optional = true }
-egui_glow = { version = "0.36.1", features = ["winit"], optional = true }
+egui_glow = { version = "0.36.2", features = ["winit"], optional = true }
 glutin = { version = "0.32.3", default-features = false, optional = true }
 glutin-winit = { version = "0.5.0", default-features = false, optional = true }
 

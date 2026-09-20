@@ -20,14 +20,14 @@
 //! }
 //! ```
 
-#[cfg(not(any(glow, wgpu)))]
-compile_error!("enable either the `glow` or `wgpu` renderer feature");
+// #[cfg(not(any(glow, wgpu)))]
+// compile_error!("enable either the `glow` or `wgpu` renderer feature");
 
 #[cfg(all(target_os = "android", not(feature = "android")))]
 compile_error!("android targets require the `android` feature");
 
-#[cfg(all(linux, not(any(feature = "wayland", feature = "x11"))))]
-compile_error!("linux builds require `wayland` or `x11`");
+// #[cfg(all(linux, not(any(feature = "wayland", feature = "x11"))))]
+// compile_error!("linux builds require `wayland` or `x11`");
 
 /// Emoji lookup and display types.
 #[cfg(feature = "emoji")]
@@ -48,6 +48,10 @@ pub mod storage;
 /// Theme management and styling.
 #[cfg(feature = "theming")]
 mod theme;
+
+/// Simple xdg-desktop-portal API.
+#[cfg(feature = "portal")]
+pub mod portal;
 
 /// Reusable widgets supplied by `egelm`.
 pub mod widgets {

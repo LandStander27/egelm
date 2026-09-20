@@ -35,7 +35,7 @@ impl Widget for ExampleApp {
 		});
 	}
 
-	fn update(&mut self, msg: Self::Message, _handle: &Handle, ctx: &Context<Self>) -> Result<(), Self::Error> {
+	fn update(&mut self, msg: Self::Message, ctx: &Context<Self>) -> Result<(), Self::Error> {
 		match msg {
 			Message::Info => ctx.toast(
 				Toast::new("Some info")

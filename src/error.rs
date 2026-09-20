@@ -62,4 +62,9 @@ pub enum Error {
 	/// An I/O error occurred while reading from storage.
 	#[error("could not perform read: {0}")]
 	ReadFailure(#[source] std::io::Error),
+
+	#[cfg(feature = "portal")]
+	/// A ashpd error when trying to use the XDG Desktop Portal.
+	#[error("portal error: {0}")]
+	Portal(#[source] ashpd::Error),
 }

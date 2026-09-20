@@ -139,6 +139,8 @@ impl std::ops::DerefMut for Frame {
 pub struct Handle {
 	proxy: Arc<std::sync::OnceLock<EventLoopProxy<UserEvent>>>,
 	visible: Arc<AtomicBool>,
+
+	window: Arc<std::sync::RwLock<Option<Arc<winit::window::Window>>>>,
 }
 
 impl Handle {
@@ -149,6 +151,17 @@ impl Handle {
 	pub(crate) fn init(&self, proxy: EventLoopProxy<UserEvent>) {
 		self.proxy.set(proxy).unwrap();
 		tracing::debug!("application handle initialized");
+	}
+
+	pub(crate) fn set_window(&self, window: Option<Arc<winit::window::Window>>) {
+		if let Ok(mut guard) = self.window.write() {
+			*guard = window;
+		}
+	}
+
+	/// Returns a reference to the underlying native window, if one is currently open.
+	pub fn window(&self) -> Option<Arc<winit::window::Window>> {
+		self.window.read().ok().and_then(|x| x.clone())
 	}
 
 	/// Requests that the application process pending messages and repaint.
@@ -436,6 +449,7 @@ impl<T: crate::window::RootWidget> Runner<T> {
 			repaint_delay: Duration::MAX,
 			frame,
 		});
+		self.handle.set_window(Some(window));
 		self.handle.visible.store(true, Ordering::Relaxed);
 		tracing::info!(?window_id, backend = self.backend.name(), "window ready");
 	}
@@ -445,6 +459,7 @@ impl<T: crate::window::RootWidget> Runner<T> {
 			tracing::info!(window_id = ?self.backend.window().id(), backend = self.backend.name(), "destroying window");
 			self.backend.destroy_surface();
 		}
+		self.handle.set_window(None);
 		self.handle.visible.store(false, Ordering::Relaxed);
 	}
 

@@ -26,7 +26,7 @@ impl Widget for Counter {
 		}
 	}
 
-	fn update(&mut self, message: Self::Message, _handle: &Handle, ctx: &Context<Self>) -> Result<(), Self::Error> {
+	fn update(&mut self, message: Self::Message, ctx: &Context<Self>) -> Result<(), Self::Error> {
 		match message {
 			CounterMessage::Increment => {
 				self.value += 1;
@@ -68,7 +68,7 @@ impl Widget for ExampleApp {
 		});
 	}
 
-	fn update(&mut self, message: Self::Message, _handle: &Handle, _ctx: &Context<Self>) -> Result<(), Self::Error> {
+	fn update(&mut self, message: Self::Message, _ctx: &Context<Self>) -> Result<(), Self::Error> {
 		match message {
 			Message::CounterChanged(label, value) => self.last_change = Some((label, value)),
 		}

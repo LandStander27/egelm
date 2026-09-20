@@ -23,16 +23,16 @@ impl Widget for ExampleApp {
 		});
 	}
 
-	fn update(&mut self, msg: Self::Message, handle: &Handle, ctx: &Context<Self>) -> Result<(), Self::Error> {
+	fn update(&mut self, msg: Self::Message, ctx: &Context<Self>) -> Result<(), Self::Error> {
 		match msg {
 			Message::Close => {
-				handle.hide();
+				ctx.handle().hide();
 				ctx.spawn(|_ctx| async move {
 					tokio::time::sleep(std::time::Duration::from_secs(5)).await;
 					Ok(Message::Show)
 				});
 			}
-			Message::Show => handle.show(),
+			Message::Show => ctx.handle().show(),
 		}
 
 		Ok(())

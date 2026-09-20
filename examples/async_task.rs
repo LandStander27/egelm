@@ -37,7 +37,7 @@ impl Widget for ExampleApp {
 		});
 	}
 
-	fn update(&mut self, message: Self::Message, _handle: &Handle, ctx: &Context<Self>) -> Result<(), Self::Error> {
+	fn update(&mut self, message: Self::Message, ctx: &Context<Self>) -> Result<(), Self::Error> {
 		match message {
 			Message::Load => {
 				self.loading = true;

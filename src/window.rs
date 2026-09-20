@@ -179,17 +179,47 @@ impl<W: Widget + 'static> Context<W> {
 		TaskHandle { cancellation, abort_handle }
 	}
 
+	/// Returns a cloneable [`Storage`](crate::storage::Storage) reference.
 	#[cfg(feature = "storage")]
 	#[inline]
-	/// Returns a cloneable [`Storage`](crate::storage::Storage) reference.
 	pub fn storage(&self) -> &Storage {
 		&self.storage
 	}
 
-	#[inline]
 	/// Returns a cloneable [`Handle`](crate::window::Handle) reference.
+	#[inline]
 	pub fn handle(&self) -> &Handle {
 		&self.handle
+	}
+
+	/// Sends an asynchronous request to an XDG desktop portal.
+	///
+	/// The portal request is automatically parented to the current native window if available.
+	///
+	/// # Errors
+	///
+	/// Returns an [`Error::Portal`](crate::error::Error::Portal) if communicating with the desktop portal fails
+	/// or if the portal response indicates an error.
+	#[cfg(feature = "portal")]
+	pub async fn portal<T: PortalRequest>(&self, request: T) -> Result<T::Output, crate::error::Error> {
+		let window = self.handle().window();
+		let handle = if let Some(window) = window {
+			tokio::task::spawn_blocking(move || {
+				use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
+
+				let window_handle = window.window_handle().ok()?.as_raw();
+				let display_handle = window.display_handle().ok().map(|x| x.as_raw());
+
+				pollster::block_on(ashpd::WindowIdentifier::from_raw_handle(&window_handle, display_handle.as_ref()))
+			})
+			.await
+			.ok()
+			.flatten()
+		} else {
+			None
+		};
+
+		request.send(handle).await
 	}
 
 	/// Wraps a widget with input, output, and error routing.
@@ -303,7 +333,7 @@ impl<W: Widget + 'static> Context<W> {
 ///         ui.label(&self.0);
 ///     }
 ///
-///     fn update(&mut self, message: Self::Message, _handle: &Handle, _ctx: &Context<Self>) -> Result<(), Self::Error> {
+///     fn update(&mut self, message: Self::Message, _ctx: &Context<Self>) -> Result<(), Self::Error> {
 ///         self.0 = message;
 ///         Ok(())
 ///     }
@@ -329,7 +359,7 @@ pub trait Widget: AutoLifecycle + Sized {
 	/// Returns a widget-defined error when the message cannot be handled. The
 	/// framework routes it to the root widget's [`RootWidget::error`] method.
 	#[expect(unused_variables)]
-	fn update(&mut self, msg: Self::Message, handle: &Handle, ctx: &Context<Self>) -> Result<(), Self::Error> {
+	fn update(&mut self, msg: Self::Message, ctx: &Context<Self>) -> Result<(), Self::Error> {
 		Ok(())
 	}
 
@@ -545,7 +575,7 @@ impl<T: Widget + 'static> Managed<T> {
 	/// widgets and does not return errors to its caller.
 	pub fn update_route_error(&mut self) {
 		while let Ok(msg) = self.rx.try_recv() {
-			if let Err(e) = self.widget.update(msg, &self.handle, &self.ctx) {
+			if let Err(e) = self.widget.update(msg, &self.ctx) {
 				tracing::error!(widget = std::any::type_name::<T>(), error = ?e, "widget update failed");
 				self.ctx.error(e);
 			}
@@ -566,7 +596,7 @@ impl<T: Widget + 'static> Managed<T> {
 	/// for the wrapped widget. Child errors are routed through their contexts.
 	pub fn update(&mut self) -> Result<(), T::Error> {
 		while let Ok(msg) = self.rx.try_recv() {
-			self.widget.update(msg, &self.handle, &self.ctx)?;
+			self.widget.update(msg, &self.ctx)?;
 		}
 
 		self.widget.tick_children_auto();
@@ -998,7 +1028,7 @@ mod tests {
 
 		fn view(&mut self, _ui: &mut egui::Ui, _frame: &mut Frame, _ctx: &Context<Self>) {}
 
-		fn update(&mut self, msg: Self::Message, _handle: &Handle, ctx: &Context<Self>) -> Result<(), Self::Error> {
+		fn update(&mut self, msg: Self::Message, ctx: &Context<Self>) -> Result<(), Self::Error> {
 			self.updates.push(msg);
 			if self.output_on_update {
 				ctx.output(format!("updated {msg}"));
