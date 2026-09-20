@@ -34,6 +34,7 @@ example, see [`examples/android`](examples/android). It might work on MacOS, but
 - Reusable about dialog and emoji helpers
 - Themable via `~/.config/egelm/colors.toml`, useable with tools like [Pywal](https://github.com/eylles/pywal16) (see [`docs/colors-template.example.toml`](docs/colors-template.example.toml) for an example pywal16 template)
 - Persistent storage
+- XDG Desktop Portal integration
 
 ## Installation
 
