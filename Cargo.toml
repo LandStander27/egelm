@@ -115,6 +115,7 @@ tokio = { version = "1.53.1", features = [
 	"macros",
 	"net",
 	"time",
+	"process",
 ] }
 tokio-util = { version = "0.7.19" }
 async-trait = { version = "0.1.92", optional = true }

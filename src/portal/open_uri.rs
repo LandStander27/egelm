@@ -105,6 +105,16 @@ impl PortalRequest for OpenURI {
 					.map_err(Error::Portal)?;
 			}
 			Target::File(path) => {
+				// Even whenever self.ask == false, the XDG Desktop Portal will still prompt what program to
+				// use to open the file for the first ~3 times. Thus, just use `xdg-open` to bypass it.
+				if !ashpd::is_sandboxed() && !self.ask {
+					if let Err(e) = tokio::process::Command::new("xdg-open").arg(&path).spawn() {
+						tracing::warn!("calling `xdg-open` failed: {e}");
+					} else {
+						return Ok(());
+					}
+				}
+
 				let file = File::open(&path).map_err(Error::ReadFailure)?;
 				OpenFileRequest::default()
 					.identifier(window)
