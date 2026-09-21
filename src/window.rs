@@ -858,6 +858,8 @@ impl<T: RootWidget> App<T> {
 	/// # Examples
 	///
 	/// ```no_run
+	/// # #[egelm::main]
+	/// # async fn main() -> Result<(), egelm::error::Error> {
 	/// use egelm::prelude::*;
 	///
 	/// #[derive(Debug)]
@@ -869,8 +871,9 @@ impl<T: RootWidget> App<T> {
 	/// }
 	/// impl RootWidget for Root {}
 	///
-	/// App::new(Root).run()?;
-	/// # Ok::<(), egelm::error::Error>(())
+	/// App::new(Root).run().await?;
+	/// # Ok(())
+	/// # }
 	/// ```
 	#[tracing::instrument(skip(self))]
 	pub async fn run(self) -> Result<(), Error> {
