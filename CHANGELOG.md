@@ -1,3 +1,7 @@
+## [0.11.1] - 2026-09-21
+
+- Add portal bypass for opening files
+
 ## [0.11.0] - 2026-09-20
 
 - Fix CHANGELOG.md

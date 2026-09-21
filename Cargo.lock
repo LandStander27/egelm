@@ -886,7 +886,7 @@ dependencies = [
 
 [[package]]
 name = "egelm"
-version = "0.11.0"
+version = "0.11.1"
 dependencies = [
  "ashpd",
  "async-trait",
@@ -920,7 +920,7 @@ dependencies = [
 
 [[package]]
 name = "egelm-macros"
-version = "0.11.0"
+version = "0.11.1"
 dependencies = [
  "egelm",
  "proc-macro2",
