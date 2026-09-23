@@ -13,6 +13,10 @@ error routing, end-user theming, and reusable dialogs on top of `egui`.
 Currently, `egelm` mainly supports Linux and Microslop Windows. Android support is experimental, but for an
 example, see [`examples/android`](examples/android). It might work on MacOS, but I have not tested it.
 
+> Primary repository: [codeberg.org/Land/egelm](https://codeberg.org/Land/egelm)
+
+> Mirror: [github.com/LandStander27/egelm](https://github.com/LandStander27/egelm)
+
 ## Table of contents
 
 - [Features](#features)
