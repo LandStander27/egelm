@@ -823,7 +823,7 @@ impl<T: RootWidget> App<T> {
 	///
 	/// For more information, see [`App::run`](Self::run).
 	#[cfg(android)]
-	#[tracing::instrument(skip(self, options))]
+	#[tracing::instrument(skip(self))]
 	pub fn run_android(self, android_app: AndroidApp) -> Result<(), Error> {
 		use egui_winit::winit::platform::android::EventLoopBuilderExtAndroid;
 
@@ -832,7 +832,7 @@ impl<T: RootWidget> App<T> {
 			.build()
 			.map_err(Error::EventLoopBuildFail)?;
 
-		self.run_with_event_loop(event_loop, crate::native::Renderer::Wgpu, self.options)
+		self.run_with_event_loop(event_loop, crate::native::Renderer::Wgpu)
 	}
 
 	/// Runs the native application event loop with the default rendering backend

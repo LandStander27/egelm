@@ -297,7 +297,7 @@ pub(crate) struct Runner<T: crate::window::RootWidget> {
 	error_rx: crossbeam_channel::Receiver<T::Error>,
 	toasts: crate::window::toast::Toasts,
 
-	#[cfg(feature = "theming")]
+	#[cfg(theming)]
 	_themer: Option<crate::theme::ThemeWatcher>,
 }
 
@@ -319,7 +319,7 @@ impl<T: crate::window::RootWidget> Runner<T> {
 			backend,
 			surfaced: None,
 
-			#[cfg(feature = "theming")]
+			#[cfg(theming)]
 			_themer: crate::theme::ThemeWatcher::new(&egui_ctx),
 
 			egui_ctx,

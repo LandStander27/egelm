@@ -11,5 +11,6 @@ fn main() {
 		glow: { feature = "glow" },
 		wgpu: { feature = "wgpu" },
 		ctrlc: { all(feature = "ctrlc", not(android)) },
+		theming: { all(feature = "theming", not(android)) }
 	}
 }

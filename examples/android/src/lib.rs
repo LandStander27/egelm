@@ -95,13 +95,12 @@ fn android_main(android_app: AndroidApp) {
 
 	let _guard = runtime.enter(); // Needed for calling Context::spawn
 
-	let app = App::new_factory(|ctx, handle| ExampleApp {
+	let app = App::new_factory(ViewportBuilder::default().with_title("Simple Example"), |ctx| ExampleApp {
 		input: None,
-		input_dialog: Managed::new(ctx.input_sender().map(Message::Confirmed), ctx.error_sender(), handle, InputDialog::default()),
+		input_dialog: ctx.manage(ctx.input_sender().map(Message::Confirmed), ctx.error_sender(), InputDialog::default()),
 	});
 
-	app.run_android(android_app, ViewportBuilder::default().with_title("Simple Example"))
-		.unwrap();
+	app.run_android(android_app).unwrap();
 }
 
 #[cfg(not(target_os = "android"))]

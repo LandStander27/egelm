@@ -46,7 +46,7 @@ pub mod window;
 pub mod storage;
 
 /// Theme management and styling.
-#[cfg(feature = "theming")]
+#[cfg(theming)]
 mod theme;
 
 /// Simple xdg-desktop-portal API.
