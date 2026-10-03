@@ -1,0 +1,12 @@
+[colors]
+background = "{{ colors.background.default.hex }}"
+text = "{{ colors.on_background.default.hex }}"
+text_muted = "{{ colors.on_surface_variant.default.hex }}"
+text_disabled = "{{ colors.outline.default.hex }}"
+
+primary = "{{ colors.primary.default.hex }}"
+primary_text = "{{ colors.on_primary.default.hex }}"
+
+success = "#00FF00"
+warning = "#FF6700"
+error = "#FF0000"
